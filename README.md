@@ -15,7 +15,5 @@ A tela Abonadas totaliza os dias de faltas abonadas por pessoa; a tela Férias m
 Não exponha este servidor diretamente à internet sem adicionar autenticação, HTTPS e controles de acesso.
 
 
-Nas abas Abonadas e Férias, o botão “Limpar registros da aba” oculta da listagem os registros já exibidos e zera a contagem visual. É necessário confirmar em “Sim”. Os registros não são apagados e continuam no calendário; o alerta de 15 dias reservados continua visível na aba Férias.
+Nas abas Abonadas e Férias, o botão “Limpar registros da aba” oculta da listagem os registros já exibidos e zera a contagem visual. Os registros não são apagados e continuam no calendário; o alerta de 15 dias reservados continua visível na aba Férias.
 
-Atualização: reservas de 15 dias podem ser feitas repetidamente; cada período posterior de 15 dias quita uma reserva anterior. O mesmo período pode quitar a reserva anterior e abrir outra se a opção Reservar 15 dias estiver marcada.
-Botão Excluir pessoa: exige seleção e confirmação; exclui definitivamente a pessoa e todos os afastamentos dela. Faça backup da pasta data antes de excluir.
