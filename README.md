@@ -32,6 +32,7 @@ Onde ficam os dados?
 Os dados são salvos pelo servidor em arquivos JSON na pasta data. Os registros dos setores ficam separados, evitando que um setor consulte os dados de outro com seu login. Essa pasta é criada conforme a configuração e o uso do sistema.
 
 #Pra que serve
+
 O projeto nasceu para facilitar uma tarefa que costuma dar trabalho no dia a dia: organizar férias, faltas abonadas, atestados, outros afastamentos e reuniões sem depender de várias planilhas ou anotações espalhadas.
 
 A ideia é simples: reunir tudo em um calendário fácil de consultar. Assim, fica mais rápido descobrir quem estará ausente em determinada data, conferir os registros do mês e acompanhar os compromissos da equipe.
