@@ -1,3 +1,11 @@
-node_modules/
-data/
+# Dados reais de funcionários e afastamentos
+/data/
+# Dependências locais
+/node_modules/
+# Segredos e configurações locais
 .env
+.env.*
+!.env.example
+# Arquivos temporários
+*.log
+.DS_Store

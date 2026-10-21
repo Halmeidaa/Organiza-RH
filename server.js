@@ -5,10 +5,11 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3001;
 const DATA_DIR = path.join(__dirname, 'data');
 const PEOPLE_FILE = path.join(DATA_DIR, 'pessoas.json');
 const ABSENCE_FILE = path.join(DATA_DIR, 'afastamentos.json');
+const MEETING_FILE = path.join(DATA_DIR, 'reunioes.json');
 const TIPOS = new Set(['ferias', 'abonada', 'atestado', 'outras']);
 app.use(cors());
 app.use(express.json({ limit: '100kb' }));
@@ -29,6 +30,7 @@ function persist(file, data) {
 }
 let pessoas = loadArray(PEOPLE_FILE);
 let afastamentos = loadArray(ABSENCE_FILE);
+let reunioes = loadArray(MEETING_FILE);
 function validDate(s) {
   if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
   const [y,m,d] = s.split('-').map(Number); const date = new Date(Date.UTC(y,m-1,d));
@@ -98,5 +100,50 @@ app.post('/api/afastamentos/ocultar-resumo', (req,res) => {
   }
 });
 app.delete('/api/afastamentos/:id',(req,res)=>{const i=afastamentos.findIndex(a=>String(a.id)===String(req.params.id));if(i<0)return res.status(404).json({error:'Afastamento não encontrado.'});const [old]=afastamentos.splice(i,1);try{persist(ABSENCE_FILE,afastamentos)}catch(e){afastamentos.splice(i,0,old);console.error(e);return res.status(500).json({error:'Não foi possível excluir o afastamento.'})}return res.json({message:'Afastamento excluído.'})});
+
+// Reuniões são independentes dos afastamentos e armazenadas em arquivo separado.
+function validTime(value) { return typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value); }
+function validateMeeting(body) {
+  if (typeof body.titulo !== 'string' || !body.titulo.trim() || body.titulo.trim().length > 150) return 'Informe o título da reunião (até 150 caracteres).';
+  if (!validDate(body.data)) return 'Informe uma data válida para a reunião.';
+  if (!validTime(body.horaInicio) || !validTime(body.horaFim) || body.horaFim <= body.horaInicio) return 'Informe horários válidos, com término posterior ao início.';
+  for (const [key, max] of [['local', 160], ['participantes', 500], ['observacoes', 1500]]) {
+    if (body[key] != null && (typeof body[key] !== 'string' || body[key].length > max)) return `O campo ${key} excede o limite permitido.`;
+  }
+  return null;
+}
+function meetingPayload(body) {
+  return {titulo:body.titulo.trim(), data:body.data, horaInicio:body.horaInicio, horaFim:body.horaFim,
+    local:(body.local||'').trim(), participantes:(body.participantes||'').trim(), observacoes:(body.observacoes||'').trim()};
+}
+app.get('/api/reunioes', (req,res) => res.json(reunioes));
+app.post('/api/reunioes', (req,res) => {
+  const error = validateMeeting(req.body||{}); if (error) return res.status(400).json({error});
+  const item = {id:crypto.randomUUID(), ...meetingPayload(req.body), criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
+  reunioes.push(item);
+  try {persist(MEETING_FILE,reunioes)}catch(e){reunioes=reunioes.filter(m=>m.id!==item.id);console.error(e);return res.status(500).json({error:'Não foi possível salvar a reunião.'})}
+  return res.status(201).json(item);
+});
+app.post('/api/reunioes/ocultar-resumo',(req,res)=>{
+  if(req.body?.confirmar!==true)return res.status(400).json({error:'Confirme a operação.'});
+  const previous=reunioes;let count=0;
+  reunioes=reunioes.map(m=>{if(!m.ocultoResumo){count++;return {...m,ocultoResumo:true}}return m});
+  try{persist(MEETING_FILE,reunioes);return res.json({message:count?`${count} reunião(ões) ocultada(s) da aba. Permanecem no calendário.`:'Nenhuma reunião nova para ocultar.',ocultados:count})}
+  catch(e){reunioes=previous;console.error(e);return res.status(500).json({error:'Não foi possível limpar a aba Reuniões.'})}
+});
+app.put('/api/reunioes/:id', (req,res) => {
+  const index = reunioes.findIndex(m=>String(m.id)===String(req.params.id)); if(index<0)return res.status(404).json({error:'Reunião não encontrada.'});
+  const error=validateMeeting(req.body||{});if(error)return res.status(400).json({error});
+  const previous=reunioes[index];const updated={...previous,...meetingPayload(req.body),atualizadoEm:new Date().toISOString()};reunioes[index]=updated;
+  try{persist(MEETING_FILE,reunioes)}catch(e){reunioes[index]=previous;console.error(e);return res.status(500).json({error:'Não foi possível atualizar a reunião.'})}
+  return res.json(updated);
+});
+app.delete('/api/reunioes/:id',(req,res)=>{
+  const index=reunioes.findIndex(m=>String(m.id)===String(req.params.id));if(index<0)return res.status(404).json({error:'Reunião não encontrada.'});
+  const [previous]=reunioes.splice(index,1);
+  try{persist(MEETING_FILE,reunioes)}catch(e){reunioes.splice(index,0,previous);console.error(e);return res.status(500).json({error:'Não foi possível excluir a reunião.'})}
+  return res.json({message:'Reunião excluída.'});
+});
+
 app.use((error,req,res,next)=>{if(error instanceof SyntaxError&&'body'in error)return res.status(400).json({error:'JSON inválido.'});console.error(error);return res.status(500).json({error:'Erro interno do servidor.'})});
 app.listen(PORT,()=>console.log(`OrganizaRH disponível em http://localhost:${PORT}`));

@@ -1,19 +1,51 @@
-OrganizaRH — calendário de férias e afastamentos
+# OrganizaRH — Calendário de férias, afastamentos e reuniões
 
-1. Instale o Node.js (versão LTS).
-2. Coloque index.html, server.js e package.json na mesma pasta.
-3. Abra o terminal nessa pasta e execute: npm install
-4. Inicie o servidor: npm start
-5. Acesse http://localhost:3000
+Aplicação local para registrar férias, faltas abonadas, atestados, outras licenças e reuniões em um calendário mensal.
 
-Pessoas são salvas em data/pessoas.json e afastamentos em data/afastamentos.json. Faça cópias de segurança da pasta data.
+## Instalação
 
-O calendário considera a data de início e a quantidade de dias corridos (inclui fins de semana). Tipos: Férias (FE), Falta abonada (FA), Atestado (AT) e Outras licenças (OL).
+Requer **Node.js LTS**.
 
-A tela Abonadas totaliza os dias de faltas abonadas por pessoa; a tela Férias mostra quantos períodos de férias cada pessoa tirou e sinaliza em vermelho os 15 dias reservados. A reserva é encerrada quando houver outro período de férias de 15 dias com início posterior ao período que gerou a reserva. No calendário, use o seletor de mês para ir diretamente a qualquer mês e ano. O modo escuro é uma preferência guardada no navegador.
+```cmd
+npm install
+npm start
+```
 
-Não exponha este servidor diretamente à internet sem adicionar autenticação, HTTPS e controles de acesso.
+Abra **http://localhost:3001** no navegador. Não abra `index.html` diretamente: os dados dependem do servidor.
+
+## Funcionalidades
+
+- **Painel lateral do calendário:** resumo mensal de férias, abonadas, atestados e reuniões, cinco eventos a partir de hoje (ou do mês escolhido) com abertura do balão para editar/excluir, e alertas de reservas de férias pendentes. Tudo se atualiza ao trocar de mês ou cadastrar, editar e excluir registros.
 
 
-Nas abas Abonadas e Férias, o botão “Limpar registros da aba” oculta da listagem os registros já exibidos e zera a contagem visual. Os registros não são apagados e continuam no calendário; o alerta de 15 dias reservados continua visível na aba Férias.
+- **Calendário:** exibe afastamentos (FE, FA, AT, OL) e reuniões (identificadas por **Reunião** em vermelho suave). Clique em um registro para abrir um balão com suas informações e os botões **Editar** e **Excluir**. Quando houver muitos eventos no mesmo dia, clique em **+ outros** para visualizá-los.
+- **Afastamentos:** cadastro e edição por janela/balão, com pessoa, tipo, data inicial, quantidade de dias e reserva de 15 dias (férias).
+- **Reuniões:** a aba também dispõe de **Limpar dados da aba**, que oculta reuniões da lista sem removê-las do calendário. Clique em **Nova reunião** ou na aba **Reuniões** para informar assunto, data, horário de início e fim, local, participantes e observações. Também é possível editar e excluir as reuniões pelo calendário e pela lista.
+- **Abonadas e Férias:** mostram resumos por pessoa. O botão **Limpar dados da aba** apenas oculta os registros desses resumos; os afastamentos permanecem no calendário.
+- **Reservas de férias:** cada nova reserva de 15 dias reativa o alerta vermelho, que permanece até outro período de 15 dias quitar a pendência. O ciclo pode se repetir.
+- **Pessoas:** adicionar ou excluir com confirmação. A exclusão da pessoa também remove os afastamentos dela.
+- **Modo escuro:** preferência armazenada no navegador.
 
+## Armazenamento e segurança
+
+O servidor cria automaticamente a pasta `data` e os arquivos JSON quando necessário:
+
+- `data/pessoas.json`: funcionários cadastrados;
+- `data/afastamentos.json`: férias e afastamentos;
+- `data/reunioes.json`: reuniões agendadas.
+
+**Não envie a pasta `data` ao GitHub.** Ela pode conter dados pessoais. Faça backups regulares dessa pasta. A pasta `node_modules` também não deve ser versionada; use `npm install` para recriá-la. O `.gitignore` já protege essas pastas.
+
+**Ao atualizar a versão**, substitua `index.html`, `server.js` e demais arquivos de código, mas **não substitua nem apague sua pasta `data` existente**. Reinicie o servidor após substituir os arquivos.
+
+> Para hospedar na internet, adicione autenticação, HTTPS e controles de acesso, além de armazenamento persistente. O servidor atual foi projetado para uso em ambiente confiável.
+
+## Atualizar no GitHub pelo CMD
+
+Dentro da pasta do repositório `OrganizaRH-v2`, depois de substituir os arquivos:
+
+```cmd
+git add .
+git commit -m "Padronizar botoes e formularios em janelas"
+git push
+```
