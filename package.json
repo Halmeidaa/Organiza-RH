@@ -1,9 +1,13 @@
 {
   "name": "organizarh",
-  "version": "1.0.0",
+  "version": "6.1.0",
   "private": true,
-  "description": "Calendário local de férias e afastamentos",
+  "description": "OrganizaRH com gerenciamento de usuários e senhas por setor, reuniões e calendário de afastamentos",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "dependencies": { "cors": "^2.8.5", "express": "^4.21.2" }
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
 }

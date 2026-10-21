@@ -111,10 +111,77 @@ body.dark #view-agenda .dashboard-stat[data-kind="atestado"] .stat-icon{backgrou
  #view-agenda .dashboard-card{padding:15px}
 }
 
+
+/* Acesso ao sistema: autenticação e cadastro de setores */
+[hidden]{display:none!important}
+.auth-screen{min-height:100vh;display:grid;place-items:center;padding:28px 16px;background:radial-gradient(circle at 12% 10%,#b52a4918,transparent 42%),var(--bg)}
+.auth-card{width:min(460px,100%);background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:28px;box-shadow:0 20px 70px #252a3416}
+.auth-brand{display:flex;align-items:center;gap:13px;margin-bottom:25px}.auth-brand h1{font-size:22px;letter-spacing:-.6px;margin:0}.auth-brand small{font-size:12px;color:var(--muted)}
+.auth-head h2{font-size:20px;letter-spacing:-.5px;margin:0 0 4px}.auth-head p{margin:0 0 21px;font-size:12px;color:var(--muted)}
+.auth-field{margin-bottom:14px}.auth-field label{display:block;font-size:12px;font-weight:750;margin-bottom:6px;color:var(--muted)}
+.auth-field input{display:block;width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink);outline:none}
+.auth-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.auth-submit{width:100%;padding:12px;margin-top:5px}.auth-switch{margin-top:18px;padding-top:15px;border-top:1px solid var(--line);display:flex;gap:7px;justify-content:center;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.auth-link{border:0;background:transparent;color:var(--accent);font-size:12px;font-weight:800;padding:5px}
+.auth-error{padding:10px 12px;margin-bottom:15px;border-radius:8px;background:#fff0f2;border:1px solid #ffd0d9;color:#a5213f;font-size:12px}
+.dark .auth-error{background:#46212b;border-color:#7a3343;color:#ffb6c5}
+.auth-notice{padding:12px;margin-bottom:16px;background:var(--bg);border:1px solid var(--line);border-radius:9px;font-size:12px;color:var(--muted)}
+.auth-sector-indicator{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:750;color:var(--muted)}
+.auth-sector-indicator strong{color:var(--ink)}
+.auth-admin-controls{display:flex;gap:6px;align-items:center;white-space:nowrap;font-size:12px;color:var(--muted)}
+.auth-admin-controls select{max-width:190px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.top-actions{flex-wrap:wrap;justify-content:flex-end}.top-actions .logout-button{font-size:12px;padding:7px 10px}
+@media(max-width:720px){.auth-card{padding:21px}.topbar{height:auto;min-height:76px;padding-top:10px;padding-bottom:10px;flex-wrap:wrap}.top-actions{justify-content:flex-start}.auth-admin-controls select{max-width:130px}}
+
+/* Gerenciamento de contas (administrador geral) */
+.admin-users-section{margin-top:22px;border-top:1px solid var(--line);padding-top:22px}
+.admin-users-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:17px;flex-wrap:wrap}
+.admin-users-heading h3{margin:0 0 4px;font-size:17px}
+.admin-users-heading .hint{max-width:650px;margin:0}
+.admin-users-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px}
+.admin-users-table{min-width:530px}
+.admin-users-table tbody tr:last-child td{border-bottom:0}
+.admin-users-table .user-actions{display:flex;gap:7px;flex-wrap:wrap}
+.admin-users-table .user-actions button{padding:6px 9px;font-size:11px}
+.admin-state{display:inline-flex;padding:4px 9px;border-radius:18px;background:var(--green-soft);color:var(--green);font-size:11px;font-weight:750}
+.admin-state.inactive{background:var(--bg);color:var(--muted)}
+@media(max-width:760px){.auth-admin-controls{flex-wrap:wrap}.admin-users-heading{align-items:stretch}}
 </style>
 </head>
 <body>
-<header class="topbar"><div class="brand"><div class="brand-mark">RH</div><div>OrganizaRH<small>Férias, afastamentos e reuniões</small></div></div><div class="top-actions"><button class="secondary" id="add-person-top">＋ Adicionar pessoa</button><button class="secondary" id="delete-person-top">Excluir pessoa</button></div></header>
+<section class="auth-screen" id="auth-screen" aria-label="Acesso ao OrganizaRH">
+  <div class="auth-card">
+    <div class="auth-brand"><span class="brand-mark">RH</span><div><h1>OrganizaRH</h1><small>Acesso por setor · Dados separados</small></div></div>
+    <p class="auth-error" id="auth-error" role="alert" hidden></p>
+    <form id="auth-login-form" hidden>
+      <div class="auth-head"><h2>Entrar no sistema</h2><p>Informe o usuário e a senha do seu setor.</p></div>
+      <div class="auth-field"><label for="auth-login-user">Usuário</label><input id="auth-login-user" autocomplete="username" maxlength="32" required placeholder="Ex.: saude"></div>
+      <div class="auth-field"><label for="auth-login-password">Senha</label><input id="auth-login-password" type="password" autocomplete="current-password" required placeholder="Sua senha"></div>
+      <button class="primary auth-submit" type="submit">Entrar</button>
+      <div class="auth-switch">Ainda não tem acesso? <button class="auth-link" type="button" id="auth-open-register">Criar login de setor</button></div>
+    </form>
+    <form id="auth-register-form" hidden>
+      <div class="auth-head"><h2>Criar login de setor</h2><p>Para cadastrar um novo setor, informe a senha do administrador.</p></div>
+      <div class="auth-field"><label for="auth-register-sector">Nome do setor</label><input id="auth-register-sector" maxlength="70" required placeholder="Ex.: Departamento de Saúde"></div>
+      <div class="auth-field"><label for="auth-register-user">Usuário do setor</label><input id="auth-register-user" maxlength="32" minlength="3" pattern="[A-Za-z0-9._-]{3,32}" required autocapitalize="none" autocomplete="off" placeholder="Ex.: saude"></div>
+      <div class="auth-field"><label for="auth-register-password">Senha do setor</label><input id="auth-register-password" type="password" maxlength="1024" required autocomplete="new-password" placeholder="Escolha qualquer senha"></div>
+      <div class="auth-field"><label for="auth-register-admin">Senha do administrador</label><input id="auth-register-admin" type="password" required autocomplete="off" placeholder="Autorizar criação do setor"></div>
+      <button class="primary auth-submit" type="submit">Criar setor</button>
+      <div class="auth-switch"><button class="auth-link" type="button" id="auth-back-login">← Voltar para entrar</button></div>
+    </form>
+    <form id="auth-setup-form" hidden>
+      <div class="auth-head"><h2>Primeiro acesso</h2><p>Configure a senha do administrador geral. Essa senha autoriza a criação de novos setores.</p></div>
+      <div class="auth-notice">Usuário do administrador: <strong>admin</strong>.</div>
+      <div class="auth-field"><label for="auth-setup-password">Criar senha do administrador</label><input id="auth-setup-password" type="password" maxlength="1024" required autocomplete="new-password" placeholder="Escolha qualquer senha"></div>
+      <div class="auth-field"><label for="auth-setup-repeat">Confirmar senha</label><input id="auth-setup-repeat" type="password" maxlength="1024" required autocomplete="new-password" placeholder="Repita a senha"></div>
+      <button class="primary auth-submit" type="submit">Configurar administrador</button>
+    </form>
+    <p id="auth-setup-remote" class="auth-notice" hidden>Para configurar o primeiro administrador, acesse <strong>http://localhost:3001</strong> diretamente no computador que executa o servidor.</p>
+  </div>
+</section>
+<div id="app-shell" hidden>
+
+<header class="topbar"><div class="brand"><div class="brand-mark">RH</div><div>OrganizaRH<small>Férias, afastamentos e reuniões</small></div></div><div class="top-actions"><div class="auth-admin-controls" id="auth-admin-controls" hidden><label for="auth-sector-select">Ver setor</label><select id="auth-sector-select" aria-label="Setor visualizado pelo administrador"></select><button type="button" class="secondary" id="auth-manage-users">Gerenciar usuários</button></div><span class="auth-sector-indicator" id="auth-sector-indicator" hidden>Setor: <strong id="auth-sector-name"></strong></span><button class="secondary" id="add-person-top">＋ Adicionar pessoa</button><button class="secondary" id="delete-person-top">Excluir pessoa</button><button class="secondary logout-button" id="auth-logout" type="button">Sair</button></div></header>
 <nav class="nav" aria-label="Navegação principal"><button class="active" data-view="agenda">▦ &nbsp;Calendário</button><button data-view="abonadas">☷ &nbsp;Abonadas</button><button data-view="ferias">☀ &nbsp;Férias</button><button data-view="reunioes">◷ &nbsp;Reuniões</button><button data-view="configuracoes">⚙ &nbsp;Configurações</button></nav>
 <main>
 <section class="page-heading"><div><div class="eyebrow">Organização de pessoal</div><h1 id="page-title">Calendário de afastamentos e reuniões</h1><p>Visualize férias, faltas abonadas, atestados e reuniões.</p></div><div class="heading-actions"><button class="primary" id="new-meeting">＋ Nova reunião</button><button class="primary" id="new-absence">＋ Novo afastamento</button><button class="secondary" id="clear-active-tab" type="button" hidden>Limpar dados da aba</button></div></section>
@@ -147,8 +214,15 @@ body.dark #view-agenda .dashboard-stat[data-kind="atestado"] .stat-icon{backgrou
 <section class="view" id="view-abonadas"><section class="panel"><div class="panel-head"><div><h2>Faltas abonadas</h2><div class="panel-subtitle">Dias de falta abonada utilizados por pessoa</div></div></div><div class="summary-grid" id="abonadas-summary"></div></section></section>
 <section class="view" id="view-ferias"><section class="panel"><div class="panel-head"><div><h2>Férias</h2><div class="panel-subtitle">Dias de férias registrados por pessoa</div></div></div><div class="summary-grid" id="ferias-summary"></div></section></section>
 <section class="view" id="view-reunioes"><section class="panel"><div class="panel-head"><div><h2>Reuniões agendadas</h2><div class="panel-subtitle">Consulte as reuniões e clique em uma delas para editar ou excluir</div></div></div><div class="meetings-list" id="meetings-list"></div></section></section>
-<section class="view" id="view-configuracoes"><section class="panel"><div class="panel-head"><div><h2>Configurações</h2><div class="panel-subtitle">Personalize a aparência do OrganizaRH</div></div></div><div class="settings-body"><div class="theme-row"><div><strong>Modo escuro</strong><div class="hint">A preferência fica salva neste navegador.</div></div><button class="secondary" type="button" id="toggle-theme" aria-pressed="false">Ativar modo escuro</button></div><p class="hint">Os dados de pessoas e afastamentos são salvos no servidor e permanecem disponíveis após reiniciá-lo.</p></div></section></section>
+<section class="view" id="view-configuracoes"><section class="panel"><div class="panel-head"><div><h2>Configurações</h2><div class="panel-subtitle">Personalize a aparência do OrganizaRH</div></div></div><div class="settings-body"><div class="theme-row"><div><strong>Modo escuro</strong><div class="hint">A preferência fica salva neste navegador.</div></div><button class="secondary" type="button" id="toggle-theme" aria-pressed="false">Ativar modo escuro</button></div><p class="hint">Os dados de pessoas e afastamentos são salvos no servidor e permanecem disponíveis após reiniciá-lo.</p>
+  <section class="admin-users-section" id="admin-users-section" hidden aria-labelledby="admin-users-title">
+    <div class="admin-users-heading"><div><h3 id="admin-users-title">Gerenciamento de usuários</h3><p class="hint">Somente o administrador pode alterar senhas ou excluir acessos. Você continua podendo consultar os dados de todos os setores.</p></div><button type="button" class="secondary" id="admin-change-own-password">Alterar minha senha</button></div>
+    <div class="admin-users-table-wrap"><table class="admin-users-table"><thead><tr><th>Setor</th><th>Usuário</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="admin-users-list"></tbody></table></div>
+    <p class="hint">Ao excluir um login, o acesso é encerrado, mas os funcionários, afastamentos e reuniões daquele setor são preservados. Para reativá-lo, utilize “Criar login de setor” com o mesmo nome do setor.</p>
+  </section>
+ </div></section></section>
 </main>
+</div><!-- app-shell -->
 <div class="modal-backdrop" id="absence-modal" role="dialog" aria-modal="true" aria-labelledby="form-title"><div class="modal meeting-modal-box" id="absence-panel"><div class="panel-head"><h2 id="form-title">Cadastrar afastamento</h2><button type="button" id="close-absence-modal" aria-label="Fechar">✕</button></div><div class="form-body"><form id="absence-form"><input type="hidden" id="absence-id"><div class="field"><label for="person-select">Nome da pessoa *</label><select id="person-select" required><option value="">Selecione uma pessoa</option></select></div><div class="field"><label for="absence-type">Tipo de afastamento *</label><select id="absence-type" required><option value="ferias">Férias</option><option value="abonada">Falta abonada</option><option value="atestado">Atestado</option><option value="outras">Outras licenças</option></select></div><div class="field"><label for="start-date">Data de início *</label><input type="date" id="start-date" required></div><div class="field"><label for="days-count">Quantidade de dias *</label><input type="number" id="days-count" min="1" max="366" value="1" required><div class="hint">A contagem considera dias corridos, incluindo fins de semana.</div></div><div class="field" id="reserve-field" hidden><label class="check-label"><input type="checkbox" id="reserve-15"> Reservar 15 dias para outra ocasião</label><div class="hint">A reserva aparecerá em vermelho na página Férias até que seja registrado outro período de férias de 15 dias.</div></div><div class="form-actions"><button class="primary" type="submit" id="save-absence">Adicionar afastamento</button><button class="secondary" type="button" id="cancel-edit">Cancelar</button></div></form></div></div></div>
 <div class="modal-backdrop" id="person-modal" role="dialog" aria-modal="true" aria-labelledby="person-modal-title"><div class="modal"><div class="panel-head"><h2 id="person-modal-title">Adicionar pessoa</h2><button type="button" id="close-person-modal" aria-label="Fechar">✕</button></div><form class="form-body" id="person-form"><div class="field"><label for="new-person-name">Nome completo *</label><input id="new-person-name" maxlength="150" placeholder="Digite o nome da pessoa" required></div><div class="form-actions"><button class="primary" type="submit">Salvar pessoa</button><button class="secondary" type="button" id="cancel-person">Cancelar</button></div></form></div></div>
 <div class="modal-backdrop" id="delete-person-modal" role="dialog" aria-modal="true" aria-labelledby="delete-person-title"><div class="modal"><div class="panel-head"><h2 id="delete-person-title">Excluir pessoa</h2><button type="button" id="close-delete-person" aria-label="Fechar">✕</button></div><div class="form-body"><div class="field"><label for="delete-person-select">Selecione a pessoa *</label><select id="delete-person-select"><option value="">Selecione uma pessoa</option></select></div><p class="hint">A exclusão também removerá os afastamentos desta pessoa do calendário e das listagens. Esta ação não pode ser desfeita.</p><div class="form-actions"><button class="danger" type="button" id="request-delete-person">Excluir pessoa</button><button class="secondary" type="button" id="cancel-delete-person">Cancelar</button></div></div></div></div>
@@ -156,6 +230,8 @@ body.dark #view-agenda .dashboard-stat[data-kind="atestado"] .stat-icon{backgrou
 <div class="modal-backdrop" id="clear-summary-modal" role="dialog" aria-modal="true" aria-labelledby="clear-summary-title"><div class="modal"><div class="panel-head"><h2 id="clear-summary-title">Confirmar limpeza</h2></div><div class="form-body"><p id="clear-summary-message">Deseja ocultar os registros desta aba?</p><p class="hint">Os afastamentos continuarão no calendário. Esta ação apenas limpa a listagem e a contagem desta aba.</p><div class="form-actions"><button class="danger" type="button" id="confirm-clear-summary">Sim</button><button class="secondary" type="button" id="cancel-clear-summary">Cancelar</button></div></div></div></div>
 <div class="modal-backdrop" id="meeting-modal" role="dialog" aria-modal="true" aria-labelledby="meeting-modal-title"><div class="modal meeting-modal-box"><div class="panel-head"><h2 id="meeting-modal-title">Agendar reunião</h2><button type="button" id="close-meeting-modal" aria-label="Fechar">✕</button></div><form class="form-body" id="meeting-form"><input type="hidden" id="meeting-id"><div class="field"><label for="meeting-title">Assunto da reunião *</label><input id="meeting-title" maxlength="150" placeholder="Ex.: Reunião de equipe" required></div><div class="field"><label for="meeting-date">Data *</label><input type="date" id="meeting-date" required></div><div class="meeting-time-row"><div class="field"><label for="meeting-start">Horário de início *</label><input type="time" id="meeting-start" required></div><div class="field"><label for="meeting-end">Horário de término *</label><input type="time" id="meeting-end" required></div></div><div class="field"><label for="meeting-location">Local</label><input id="meeting-location" maxlength="160" placeholder="Ex.: Sala de reuniões"></div><div class="field"><label for="meeting-attendees">Participantes</label><input id="meeting-attendees" maxlength="500" placeholder="Nomes dos participantes (opcional)"></div><div class="field"><label for="meeting-notes">Observações</label><textarea id="meeting-notes" rows="3" maxlength="1500" placeholder="Pauta ou outras informações (opcional)"></textarea></div><div class="form-actions"><button type="submit" class="primary" id="meeting-save">Salvar reunião</button><button type="button" class="secondary" id="cancel-meeting">Cancelar</button></div></form></div></div>
 <div class="event-popover" id="event-popover" role="dialog" aria-label="Detalhes do registro" aria-modal="false" hidden><div class="popover-head"><div><div class="popover-category" id="popover-category"></div><h3 id="popover-title"></h3></div><button type="button" id="close-event-popover" aria-label="Fechar detalhes">✕</button></div><div id="popover-content"></div><div class="popover-actions"><button type="button" class="secondary" id="popover-edit">Editar</button><button type="button" class="danger" id="popover-delete">Excluir</button></div></div>
+<div class="modal-backdrop" id="admin-password-modal" role="dialog" aria-modal="true" aria-labelledby="admin-password-title"><div class="modal"><div class="panel-head"><h2 id="admin-password-title">Alterar senha</h2><button type="button" id="admin-password-close" aria-label="Fechar">✕</button></div><form class="form-body" id="admin-password-form"><p id="admin-password-label" class="hint"></p><div class="field"><label for="admin-new-password">Nova senha *</label><input type="password" id="admin-new-password" maxlength="1024" autocomplete="new-password" required placeholder="Qualquer senha não vazia"></div><div class="field"><label for="admin-repeat-password">Confirmar nova senha *</label><input type="password" id="admin-repeat-password" maxlength="1024" autocomplete="new-password" required></div><div class="field"><label for="admin-confirm-password">Senha atual do administrador *</label><input type="password" id="admin-confirm-password" autocomplete="current-password" required placeholder="Confirme a autorização"></div><div class="form-actions"><button type="submit" class="primary">Salvar nova senha</button><button type="button" class="secondary" id="admin-password-cancel">Cancelar</button></div></form></div></div>
+<div class="modal-backdrop" id="admin-delete-modal" role="dialog" aria-modal="true" aria-labelledby="admin-delete-title"><div class="modal"><div class="panel-head"><h2 id="admin-delete-title">Excluir usuário do setor</h2><button type="button" id="admin-delete-close" aria-label="Fechar">✕</button></div><form class="form-body" id="admin-delete-form"><p id="admin-delete-label"></p><p class="hint">Somente o login será excluído. Os dados do setor permanecerão disponíveis para o administrador. O usuário será desconectado.</p><div class="field"><label for="admin-delete-password">Senha do administrador *</label><input type="password" id="admin-delete-password" autocomplete="current-password" required></div><div class="form-actions"><button type="submit" class="danger">Sim, excluir login</button><button type="button" class="secondary" id="admin-delete-cancel">Cancelar</button></div></form></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 const API='/api';let pessoas=[],afastamentos=[],reunioes=[],activePopover=null,popoverAnchor=null,currentDate=new Date(new Date().getFullYear(),new Date().getMonth(),1),toastTimer=null;
@@ -168,7 +244,7 @@ function endDate(a){return addDays(a.inicio,Number(a.dias)-1)}
 function dateInAbsence(date,a){return date>=a.inicio&&date<=endDate(a)}
 function fmtDate(s){return parseDate(s).toLocaleDateString('pt-BR')}
 function toast(msg,error=false){const el=$('toast');el.textContent=msg;el.className='toast show'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='toast',3500)}
-async function request(url,options={}){const res=await fetch(url,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});let data={};try{data=await res.json()}catch{}if(!res.ok)throw new Error(data.error||'Não foi possível concluir a operação.');return data}
+async function request(url,options={}){const method=(options.method||'GET').toUpperCase();const headers={'Content-Type':'application/json',...(method!=='GET'&&method!=='HEAD'?{'X-OrganizaRH-Request':'1'}:{}),...(options.headers||{})};const res=await fetch(url,{...options,headers,credentials:'same-origin'});let data={};try{data=await res.json()}catch{}if(!res.ok){if(res.status===401&&!url.includes('/auth/'))showLogin();throw new Error(data.error||'Não foi possível concluir a operação.')}return data}
 function setConnection(ok){$('connection-dot').classList.toggle('offline',!ok);$('connection-label').textContent=ok?'Conectado':'Sem conexão'}
 function personName(id){return pessoas.find(p=>String(p.id)===String(id))?.nome||'Pessoa removida'}
 function populatePeople(selected=''){const sel=$('person-select');sel.replaceChildren(new Option('Selecione uma pessoa',''));pessoas.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).forEach(p=>sel.add(new Option(p.nome,p.id)));sel.value=selected}
@@ -311,5 +387,136 @@ $('cancel-clear-summary').addEventListener('click',closeClearSummary);
 $('confirm-clear-summary').addEventListener('click',async()=>{const type=pendingSummaryType;if(!type)return;const button=$('confirm-clear-summary');button.disabled=true;try{const result=await request(type==='reuniao'?`${API}/reunioes/ocultar-resumo`:`${API}/afastamentos/ocultar-resumo`,{method:'POST',body:JSON.stringify(type==='reuniao'?{confirmar:true}:{tipo:type,confirmar:true})});closeClearSummary();await loadAll();toast(result.message)}catch(e){toast(e.message,true)}finally{button.disabled=false}});
 $('clear-summary-modal').addEventListener('click',e=>{if(e.target===$('clear-summary-modal'))closeClearSummary()});
 function setTheme(dark){document.body.classList.toggle('dark',dark);$('toggle-theme').textContent=dark?'Ativar modo claro':'Ativar modo escuro';$('toggle-theme').setAttribute('aria-pressed',String(dark));localStorage.setItem('organiz aRH-dark'.replace(' ',''),dark?'1':'0')}$('toggle-theme').onclick=()=>setTheme(!document.body.classList.contains('dark'));setTheme(localStorage.getItem('organizaRH-dark')==='1');
-loadAll();
+
+// Sessão e cadastro de setores: dados só são carregados após a autenticação.
+let currentAccount=null;
+const AUTH_FORMS=['auth-login-form','auth-register-form','auth-setup-form'];
+function authError(text=''){$('auth-error').textContent=text;$('auth-error').hidden=!text}
+function showAuthForm(name){AUTH_FORMS.forEach(id=>$(id).hidden=id!==name);$('auth-setup-remote').hidden=true;authError()}
+function showLogin(){
+ currentAccount=null;pessoas=[];afastamentos=[];reunioes=[];
+ $('app-shell').hidden=true;$('auth-screen').hidden=false;
+ document.querySelectorAll('.modal-backdrop.open').forEach(el=>el.classList.remove('open'));
+ closePopover();showAuthForm('auth-login-form');
+ $('auth-login-password').value='';
+}
+async function afterLogin(profile){
+ currentAccount=profile;
+ $('auth-screen').hidden=true;$('app-shell').hidden=false;
+ $('auth-login-form').reset();$('auth-register-form').reset();
+ const admin=profile.role==='admin';$('auth-admin-controls').hidden=!admin;$('auth-sector-indicator').hidden=admin;$('admin-users-section').hidden=!admin;
+ $('auth-sector-name').textContent=profile.sectorName;
+ if(admin)refreshAdminSectorSelector(profile);
+ await loadAll();
+ if(admin)try{await loadAdminUsers()}catch(err){toast(err.message,true)}
+}
+// O administrador gerencia todas as credenciais sem modificar os dados de cada setor.
+let adminUserList=[],adminPasswordTarget=null,adminDeleteTarget=null;
+function refreshAdminSectorSelector(profile){
+ const sel=$('auth-sector-select');sel.replaceChildren();
+ (profile.sectors||[]).filter(s=>s.id!=='legado').forEach(s=>sel.add(new Option(s.nome+(s.active?'':' (sem login)'),s.id)));
+ if(!sel.options.length){sel.add(new Option('Nenhum setor cadastrado',''));sel.disabled=true}
+ else{sel.disabled=false;sel.value=profile.sectorId;}
+}
+async function loadAdminUsers(){
+ if(currentAccount?.role!=='admin')return;
+ const list=await request(`${API}/admin/users`);adminUserList=list.sectors;
+ const target=$('admin-users-list');target.replaceChildren();
+ list.sectors.filter(s=>s.id!=='legado').forEach(s=>{
+  const tr=document.createElement('tr');
+  const cellSetor=document.createElement('td');cellSetor.textContent=s.nome;
+  const cellUser=document.createElement('td');cellUser.textContent=s.username||'Sem login';
+  const cellState=document.createElement('td');const state=document.createElement('span');state.className='admin-state'+(s.active?'':' inactive');state.textContent=s.active?'Ativo':'Sem acesso';cellState.appendChild(state);
+  const cellActions=document.createElement('td');const group=document.createElement('div');group.className='user-actions';
+  if(s.active){
+   const edit=document.createElement('button');edit.type='button';edit.className='secondary';edit.textContent='Alterar senha';edit.addEventListener('click',()=>openAdminPasswordModal(s.id,`Setor: ${s.nome} · usuário: ${s.username}`));
+   const del=document.createElement('button');del.type='button';del.className='secondary';del.textContent='Excluir usuário';del.addEventListener('click',()=>openAdminDeleteModal(s));group.append(edit,del);
+  }else{const empty=document.createElement('span');empty.className='hint';empty.textContent='Dados preservados';group.appendChild(empty)}
+  cellActions.appendChild(group);tr.append(cellSetor,cellUser,cellState,cellActions);target.appendChild(tr);
+ });
+}
+function openAdminPasswordModal(target,label){
+ if(currentAccount?.role!=='admin')return;
+ adminPasswordTarget=target;
+ $('admin-password-form').reset();$('admin-password-title').textContent=target==='admin'?'Alterar senha do administrador':'Alterar senha do setor';
+ $('admin-password-label').textContent=label;
+ $('admin-password-modal').classList.add('open');$('admin-new-password').focus();
+}
+function closeAdminPasswordModal(){$('admin-password-modal').classList.remove('open');$('admin-password-form').reset();adminPasswordTarget=null}
+function openAdminDeleteModal(sector){
+ if(currentAccount?.role!=='admin')return;
+ adminDeleteTarget=sector.id;$('admin-delete-form').reset();
+ $('admin-delete-label').textContent=`Deseja excluir o usuário “${sector.username}” do setor “${sector.nome}”?`;
+ $('admin-delete-modal').classList.add('open');$('admin-delete-password').focus();
+}
+function closeAdminDeleteModal(){$('admin-delete-modal').classList.remove('open');$('admin-delete-form').reset();adminDeleteTarget=null}
+$('auth-manage-users').onclick=()=>{const button=document.querySelector('.nav button[data-view="configuracoes"]');button.click();$('admin-users-section').scrollIntoView({behavior:'smooth',block:'start'})};
+$('admin-change-own-password').onclick=()=>openAdminPasswordModal('admin','Administrador geral · usuário: admin');
+$('admin-password-close').onclick=closeAdminPasswordModal;
+$('admin-password-cancel').onclick=closeAdminPasswordModal;
+$('admin-password-modal').addEventListener('click',e=>{if(e.target===$('admin-password-modal'))closeAdminPasswordModal()});
+$('admin-delete-close').onclick=closeAdminDeleteModal;
+$('admin-delete-cancel').onclick=closeAdminDeleteModal;
+$('admin-delete-modal').addEventListener('click',e=>{if(e.target===$('admin-delete-modal'))closeAdminDeleteModal()});
+$('admin-password-form').addEventListener('submit',async e=>{
+ e.preventDefault();const novaSenha=$('admin-new-password').value;
+ if(novaSenha!==$('admin-repeat-password').value){toast('As novas senhas não coincidem.',true);return}
+ const target=adminPasswordTarget,button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;
+ try{
+  const result=await request(`${API}/admin/password`,{method:'PUT',body:JSON.stringify({target,novaSenha,senhaAdmin:$('admin-confirm-password').value})});
+  closeAdminPasswordModal();
+  if(result.mustRelogin)showLogin();else await loadAdminUsers();
+  toast(result.message);
+ }catch(err){toast(err.message,true)}finally{button.disabled=false}
+});
+$('admin-delete-form').addEventListener('submit',async e=>{
+ e.preventDefault();const id=adminDeleteTarget,button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;
+ try{
+  const result=await request(`${API}/admin/users/${encodeURIComponent(id)}`,{method:'DELETE',body:JSON.stringify({confirmar:true,senhaAdmin:$('admin-delete-password').value})});
+  closeAdminDeleteModal();const profile=await request(`${API}/auth/me`);currentAccount=profile;refreshAdminSectorSelector(profile);
+  await loadAdminUsers();toast(result.message);
+ }catch(err){toast(err.message,true)}finally{button.disabled=false}
+});
+$('auth-open-register').onclick=()=>showAuthForm('auth-register-form');
+$('auth-back-login').onclick=()=>showAuthForm('auth-login-form');
+$('auth-login-form').addEventListener('submit',async e=>{
+ e.preventDefault();const button=e.currentTarget.querySelector('button[type=submit]');button.disabled=true;authError();
+ try{const profile=await request(`${API}/auth/login`,{method:'POST',body:JSON.stringify({usuario:$('auth-login-user').value.trim(),senha:$('auth-login-password').value})});await afterLogin(profile)}
+ catch(err){authError(err.message)}finally{button.disabled=false}
+});
+$('auth-register-form').addEventListener('submit',async e=>{
+ e.preventDefault();const button=e.currentTarget.querySelector('button[type=submit]');button.disabled=true;authError();
+ try{
+  const usuario=$('auth-register-user').value.trim().toLowerCase();
+  await request(`${API}/auth/create-sector`,{method:'POST',body:JSON.stringify({setor:$('auth-register-sector').value.trim(),usuario,senha:$('auth-register-password').value,senhaAdmin:$('auth-register-admin').value})});
+  $('auth-register-form').reset();showAuthForm('auth-login-form');$('auth-login-user').value=usuario;
+  authError('');toast('Setor criado. Entre com o novo usuário e senha.');
+ }catch(err){authError(err.message)}finally{button.disabled=false}
+});
+$('auth-setup-form').addEventListener('submit',async e=>{
+ e.preventDefault();authError();const pass=$('auth-setup-password').value;
+ if(pass!==$('auth-setup-repeat').value){authError('As senhas não coincidem.');return}
+ const button=e.currentTarget.querySelector('button[type=submit]');button.disabled=true;
+ try{await request(`${API}/auth/setup`,{method:'POST',body:JSON.stringify({senha:pass})});$('auth-setup-form').reset();showAuthForm('auth-login-form');$('auth-login-user').value='admin';toast('Administrador configurado. Entre com sua senha.')}
+ catch(err){authError(err.message)}finally{button.disabled=false}
+});
+$('auth-sector-select').addEventListener('change',async e=>{
+ const sel=e.currentTarget;sel.disabled=true;
+ try{const profile=await request(`${API}/auth/select-sector`,{method:'POST',body:JSON.stringify({sectorId:sel.value})});currentAccount=profile;pessoas=[];afastamentos=[];reunioes=[];await loadAll();toast('Setor alterado: '+profile.sectorName)}
+ catch(err){toast(err.message,true);if(currentAccount)sel.value=currentAccount.sectorId}
+ finally{sel.disabled=false}
+});
+$('auth-logout').onclick=async()=>{try{await request(`${API}/auth/logout`,{method:'POST'})}catch{}showLogin()};
+async function initAuth(){
+ try{
+  const status=await request(`${API}/auth/status`);
+  if(!status.configured){$('auth-screen').hidden=false;$('app-shell').hidden=true;
+   if(status.canSetup)showAuthForm('auth-setup-form');else{AUTH_FORMS.forEach(id=>$(id).hidden=true);$('auth-setup-remote').hidden=false}
+   return;
+  }
+  try{const me=await request(`${API}/auth/me`);await afterLogin(me)}catch{showLogin()}
+ }catch(err){$('auth-screen').hidden=false;$('app-shell').hidden=true;authError('Não foi possível conectar ao servidor. Abra o OrganizaRH pelo endereço localhost:3001.')}
+}
+initAuth();
+
 </script></body></html>
