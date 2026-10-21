@@ -1,21 +1,37 @@
-# OrganizaRH v6.1 — Sem a seção Dados anteriores
+#O que precisa para rodar?
 
-Esta atualização remove a seção **Dados anteriores** da lista de setores e do gerenciamento de usuários. O administrador continua acessando os setores cadastrados, alterando senhas e excluindo logins.
+- Node.js instalado no computador que servirá como servidor (inclui o npm). Você pode baixá-lo em https://nodejs.org/.
+- Os arquivos do projeto, incluindo index.html, server.js e package.json.
+- Um navegador, como Chrome, Edge ou Firefox.
+O Git é útil para baixar e atualizar o projeto, mas não é necessário para executar o sistema se você já tem os arquivos.
+Como instalar e iniciar (Windows)
+1. Baixe ou extraia o projeto. Coloque os arquivos em uma pasta, por exemplo C:\OrganizaRH.
 
-## O que muda
+2. Abra o CMD nessa pasta. Pelo Explorador de Arquivos, abra a pasta, clique na barra de endereço, digite cmd e pressione Enter. Se preferir, use:
+cd /d C:\OrganizaRH
+3. Instale as dependências. Na primeira execução, digite:
+npm install
+Esse comando lê o package.json e instala automaticamente o que o projeto precisa, incluindo o Express. A pasta node_modules será criada; não é necessário baixá-la do GitHub.
 
-- **Dados anteriores** deixa de aparecer como opção no seletor do administrador e na lista de usuários.
-- Na tela de primeiro acesso, não existe mais a informação sobre o setor **Dados anteriores**.
-- O administrador abre automaticamente o primeiro setor cadastrado. Se nenhum existir, a lista indica que ainda não existem setores.
-- A configuração de contas e as senhas já existentes são preservadas.
-- Os arquivos antigos de `data` e `data/setores/legado` **não são apagados**. Continuam guardados para eventual recuperação e não aparecem no calendário dos setores criados.
+4. Inicie o servidor:
+npm start
+5. Abra o sistema: acesse http://localhost:3001 no navegador do computador que está executando o servidor.
 
-## Atualização
+Na primeira utilização, acesse o sistema no próprio computador do servidor e configure a senha do administrador. Depois, entre com o usuário admin. Os logins dos setores podem ser criados na tela inicial mediante a senha do administrador.
+Dica: mantenha a janela do CMD aberta enquanto usa o sistema. Para encerrar o servidor, pressione Ctrl + C nessa janela.
 
-1. Pare o servidor (`Ctrl+C` no CMD) e **faça backup da pasta `data`**.
-2. Extraia o ZIP e substitua `index.html`, `server.js`, `package.json` e `.gitignore` na pasta do sistema.
-3. **Não remova nem substitua a pasta `data`**.
-4. Execute `npm install` (se necessário) e `npm start`.
-5. Acesse `http://localhost:3001` e entre com suas credenciais atuais.
+Nas próximas vezes
+Não precisa executar npm install toda vez. Basta abrir o CMD na pasta do OrganizaRH e usar:
+npm start
+Se aparecer uma mensagem informando que node ou npm não foi reconhecido, confira a instalação do Node.js e abra um novo CMD. Se a porta 3001 já estiver ocupada, feche a instância anterior do sistema ou configure outra porta.
+Acessar de outro computador na mesma rede
+Com o servidor ligado e a rede configurada para permitir a conexão, outros computadores podem acessar pelo IP da máquina que executa o Node.js:
+http://IP-DO-SERVIDOR:3001
+localhost funciona apenas no próprio computador do servidor. Dependendo da rede, poderá ser necessário permitir a porta 3001 no firewall.
+Onde ficam os dados?
+Os dados são salvos pelo servidor em arquivos JSON na pasta data. Os registros dos setores ficam separados, evitando que um setor consulte os dados de outro com seu login. Essa pasta é criada conforme a configuração e o uso do sistema.
 
-**Observação:** esta atualização apenas remove a seção histórica da interface e do acesso administrativo, sem excluir os registros antigos do disco. Para apagar definitivamente esses arquivos é necessária uma decisão separada e backup prévio.
+#Pra que serve
+O projeto nasceu para facilitar uma tarefa que costuma dar trabalho no dia a dia: organizar férias, faltas abonadas, atestados, outros afastamentos e reuniões sem depender de várias planilhas ou anotações espalhadas.
+
+A ideia é simples: reunir tudo em um calendário fácil de consultar. Assim, fica mais rápido descobrir quem estará ausente em determinada data, conferir os registros do mês e acompanhar os compromissos da equipe.
