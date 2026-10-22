@@ -1,5 +1,8 @@
 // OrganizaRH v5: autenticação por setor e isolamento de registros no servidor.
+require('dotenv').config();
 const express = require('express');
+const nodemailer = require('nodemailer');
+const ExcelJS = require('exceljs');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -254,6 +257,114 @@ app.delete('/api/admin/users/:id',requireAdmin,async(req,res,next)=>{
   res.json({message:'Login excluído. Os dados do setor foram preservados para o administrador.'});
  }catch(e){next(e)}
 });
+
+// Avisos automáticos de reuniões: uma mensagem por dia e por setor, às 07h (São Paulo).
+const EMAIL_TIME_ZONE = 'America/Sao_Paulo';
+const ALERT_HOUR = 7;
+const mailInProgress = new Set();
+function todayInSaoPaulo(){
+ return new Intl.DateTimeFormat('en-CA',{timeZone:EMAIL_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+}
+function hourInSaoPaulo(){
+ return Number(new Intl.DateTimeFormat('en-GB',{timeZone:EMAIL_TIME_ZONE,hour:'2-digit',hourCycle:'h23'}).format(new Date()));
+}
+function mailSettingsFile(id){return path.join(SECTORS_DIR,id,'aviso-email.json')}
+function readMailSettings(id){
+ const file=mailSettingsFile(id);
+ if(!fs.existsSync(file))return {destinatario:'',ativo:false,ultimoEnvio:null};
+ return JSON.parse(fs.readFileSync(file,'utf8'));
+}
+function isValidEmail(value){return typeof value==='string'&&value.length<=254&&/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value)}
+function smtpIsConfigured(){return !!(process.env.SMTP_HOST&&process.env.SMTP_USER&&process.env.SMTP_PASS&&process.env.SMTP_FROM)}
+function createMailTransport(){
+ return nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||587),secure:String(process.env.SMTP_SECURE||'false')==='true',auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS}});
+}
+function messageText(sectorName,date,items){
+ const displayDate=date.split('-').reverse().join('/');
+ return [`OrganizaRH — Reuniões de ${displayDate}`,`Setor: ${sectorName}`,'',`Hoje há ${items.length} reunião(ões) agendada(s):`,'',...items.flatMap((m,i)=>[`${i+1}. ${m.titulo}`,`Horário: ${m.horaInicio} às ${m.horaFim}`,`Local: ${m.local||'Não informado'}`,`Participantes: ${m.participantes||'Não informados'}`,`Observações: ${m.observacoes||'Nenhuma'}`,'']),'Mensagem automática enviada pelo OrganizaRH.'].join('\n');
+}
+async function sendDailyMeetingMail(sector,{test=false}={}){
+ const id=sector.id;
+ if(mailInProgress.has(id))return {status:'busy'};
+ mailInProgress.add(id);
+ try{
+  if(!smtpIsConfigured())return {status:'no-smtp'};
+  const settings=readMailSettings(id);
+  if(!settings.ativo||!isValidEmail(settings.destinatario))return {status:'disabled'};
+  const date=todayInSaoPaulo();
+  if(!test&&settings.ultimoEnvio===date)return {status:'already-sent'};
+  const file=path.join(SECTORS_DIR,id,'reunioes.json');
+  const meetings=loadArray(file).filter(m=>m.data===date).sort((a,b)=>a.horaInicio.localeCompare(b.horaInicio));
+  if(!meetings.length&&!test)return {status:'no-meetings'};
+  const text=meetings.length?messageText(sector.nome,date,meetings):`Este é um e-mail de teste do OrganizaRH para o setor ${sector.nome}. Não há reuniões agendadas para hoje.`;
+  const subject=test?`[TESTE] OrganizaRH — Avisos de reuniões (${sector.nome})`:`OrganizaRH — ${meetings.length} reunião(ões) hoje (${sector.nome})`;
+  await createMailTransport().sendMail({from:process.env.SMTP_FROM,to:settings.destinatario,subject,text});
+  if(!test){
+   const updated=readMailSettings(id);
+   // Evitar sobrescrever uma alteração de destinatário feita enquanto o SMTP enviava.
+   if(updated.destinatario===settings.destinatario && updated.ativo)persist(mailSettingsFile(id),{...updated,ultimoEnvio:date,idsAvisados:meetings.map(m=>m.id)});
+  }
+  return {status:'sent',count:meetings.length};
+ }finally{mailInProgress.delete(id)}
+}
+// Envia apenas reuniões do próprio dia que foram cadastradas após as 07h e ainda não foram avisadas.
+// Mantém o controle por setor e evita repetir avisos quando a verificação roda a cada minuto.
+function createdAfterAlertTime(meeting,date){
+ if(!meeting.criadoEm)return false;
+ const created=new Date(meeting.criadoEm);
+ if(Number.isNaN(created.getTime()))return false;
+ const localDate=new Intl.DateTimeFormat('en-CA',{timeZone:EMAIL_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).format(created);
+ const localHour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:EMAIL_TIME_ZONE,hour:'2-digit',hourCycle:'h23'}).format(created));
+ return localDate===date && localHour>=ALERT_HOUR;
+}
+async function sendLateMeetingMail(sector){
+ const id=sector.id;
+ if(mailInProgress.has(id))return {status:'busy'};
+ mailInProgress.add(id);
+ try{
+  if(!smtpIsConfigured())return {status:'no-smtp'};
+  const settings=readMailSettings(id);
+  if(!settings.ativo||!isValidEmail(settings.destinatario))return {status:'disabled'};
+  const date=todayInSaoPaulo();
+  if(hourInSaoPaulo()<ALERT_HOUR||settings.ultimoEnvio!==date)return {status:'not-due'};
+  const meetings=loadArray(path.join(SECTORS_DIR,id,'reunioes.json'));
+  // Compatibilidade com setores que já receberam o resumo antes de atualizar para a v9:
+  // evita reenviar todas as reuniões antigas na primeira verificação.
+  if(!Array.isArray(settings.idsAvisados)){
+   // Migração: não repetir reuniões antigas já cobertas pelo resumo da v8.
+   // Reuniões criadas nos últimos dois minutos ficam elegíveis para aviso imediato.
+   const cutoff=Date.now()-2*60*1000;
+   const previous=meetings.filter(m=>m.data===date && (!m.criadoEm || new Date(m.criadoEm).getTime()<cutoff));
+   persist(mailSettingsFile(id),{...settings,idsAvisados:previous.map(m=>m.id)});
+   settings.idsAvisados=previous.map(m=>m.id);
+  }
+  const notified=new Set(settings.idsAvisados);
+  const late=meetings.filter(m=>m.data===date&&!notified.has(m.id)&&createdAfterAlertTime(m,date)).sort((a,b)=>a.horaInicio.localeCompare(b.horaInicio));
+  if(!late.length)return {status:'no-meetings'};
+  const subject=`OrganizaRH — Nova(s) reunião(ões) para hoje (${sector.nome})`;
+  const message=messageText(sector.nome,date,late).replace('Hoje há','Foi cadastrada após as 7h. Hoje há');
+  await createMailTransport().sendMail({from:process.env.SMTP_FROM,to:settings.destinatario,subject,text:message});
+  const current=readMailSettings(id);
+  if(current.destinatario===settings.destinatario && current.ativo && current.ultimoEnvio===date){
+   persist(mailSettingsFile(id),{...current,idsAvisados:[...new Set([...(current.idsAvisados||[]),...late.map(m=>m.id)])]});
+  }
+  return {status:'sent',count:late.length};
+ }finally{mailInProgress.delete(id)}
+}
+async function checkSectorMeetingEmails(sector){
+ if(hourInSaoPaulo()<ALERT_HOUR)return;
+ const daily=await sendDailyMeetingMail(sector);
+ // Caso o resumo do dia já tenha saído, envia separadamente apenas reuniões novas.
+ if(daily.status==='already-sent')await sendLateMeetingMail(sector);
+}
+async function checkMeetingEmails(){
+ if(hourInSaoPaulo()<ALERT_HOUR)return;
+ for(const sector of regularSectors()){
+  if(!sector.username||!sector.hash)continue;
+  try{await checkSectorMeetingEmails(sector)}catch(err){console.error(`Falha no aviso de reunião do setor ${sector.id}:`,err.message)}
+ }
+}
+
 // Cada roteador mantém arrays e arquivos exclusivos de um setor.
 function getRouter(sectorId){
  if(routers.has(sectorId))return routers.get(sectorId);
@@ -284,6 +395,10 @@ function validateAbsence(body) {
   if (!validDate(body.inicio)) return 'Informe uma data de início válida.';
   const dias = Number(body.dias);
   if (!Number.isInteger(dias) || dias < 1 || dias > 366) return 'A quantidade de dias deve ser um número inteiro entre 1 e 366.';
+  if (body.tipo === 'ferias' && ![15, 20, 30].includes(dias)) return 'Para férias, selecione um período de 15, 20 ou 30 dias.';
+  if (body.reserva10 === true && !(body.tipo === 'ferias' && dias === 20)) return 'A reserva de 10 dias só é permitida em férias de 20 dias.';
+  if (body.reserva15 === true && !(body.tipo === 'ferias' && dias === 15)) return 'A reserva de 15 dias só é permitida em férias de 15 dias.';
+  if (body.tipo === 'abonada' && dias !== 1) return 'Cada falta abonada deve corresponder a apenas 1 dia.';
   return null;
 }
 router.get('/pessoas', (req,res) => res.json(pessoas));
@@ -303,17 +418,106 @@ router.delete('/pessoas/:id', (req,res) => {
   try{persist(ABSENCE_FILE,afastamentos);persist(PEOPLE_FILE,pessoas);return res.json({message:'Pessoa e afastamentos excluídos.'})}
   catch(e){pessoas=previousPeople;afastamentos=previousAbsences;console.error(e);try{persist(ABSENCE_FILE,afastamentos);persist(PEOPLE_FILE,pessoas)}catch(rollbackError){console.error('Erro ao restaurar arquivos:',rollbackError)}return res.status(500).json({error:'Não foi possível excluir a pessoa.'})}
 });
+// Exportação completa do setor autenticado: inclui registros ocultos das abas.
+// Nenhum identificador de setor é aceito pela URL: o roteador já foi selecionado
+// exclusivamente pela sessão autenticada (ou pelo setor escolhido pelo admin).
+// Exportação de planilhas Excel por setor. O roteador já é selecionado pela sessão:
+// a exportação nunca lê os dados de outros setores, inclusive para o admin.
+// Inclui também registros ocultados das abas, sem expor o indicador de ocultação.
+router.get('/exportar/:tipo', async (req,res) => {
+  const tipo=req.params.tipo;
+  if(!['abonada','ferias','reunioes'].includes(tipo))return res.status(404).json({error:'Exportação não encontrada.'});
+  try{
+    const titulo=tipo==='abonada'?'Faltas abonadas':tipo==='ferias'?'Férias':'Reuniões';
+    const registros=tipo==='reunioes'
+      ? reunioes.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||'') || (a.horaInicio||'').localeCompare(b.horaInicio||'') || String(a.id).localeCompare(String(b.id)))
+      : afastamentos.filter(a=>a.tipo===tipo).sort((a,b)=>(a.inicio||'').localeCompare(b.inicio||'') || String(a.id).localeCompare(String(b.id)));
+    const nomes=new Map(pessoas.map(p=>[String(p.id),p.nome]));
+    const wb=new ExcelJS.Workbook();
+    wb.creator='OrganizaRH';
+    wb.created=new Date();
+    const ws=wb.addWorksheet(titulo,{views:[{state:'frozen',ySplit:4}]});
+    const columns=tipo==='ferias'
+      ? ['Funcionário','Data inicial','Data final','Dias de férias','Reserva de 10 dias','Reserva de 15 dias','Data do cadastro']
+      : tipo==='abonada'
+        ? ['Funcionário','Data','Dias abonados','Data do cadastro']
+        : ['Assunto','Data','Início','Término','Local','Participantes','Observações','Data do cadastro','Última atualização'];
+    ws.mergeCells(1,1,1,columns.length);
+    ws.getCell(1,1).value=`OrganizaRH | ${titulo}`;
+    ws.getCell(1,1).font={name:'Aptos Display',size:17,bold:true,color:{argb:'FFFFFFFF'}};
+    ws.getCell(1,1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF25344B'}};
+    ws.getCell(1,1).alignment={vertical:'middle',indent:1};
+    ws.getRow(1).height=34;
+    ws.mergeCells(2,1,2,columns.length);
+    ws.getCell(2,1).value=`Setor: ${setor.nome}    •    Gerado em: ${new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}    •    ${registros.length} registro(s)`;
+    ws.getCell(2,1).font={name:'Aptos',size:10,color:{argb:'FF516178'}};
+    ws.getRow(2).height=24;
+    ws.getRow(4).values=columns;
+    ws.getRow(4).height=30;
+    ws.getRow(4).eachCell(cell=>{
+      cell.font={name:'Aptos',bold:true,color:{argb:'FFFFFFFF'},size:11};
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF465F80'}};
+      cell.alignment={vertical:'middle',wrapText:true};
+    });
+    const asDate=(iso)=>{if(typeof iso!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(iso))return null;const [y,m,d]=iso.split('-').map(Number);return new Date(Date.UTC(y,m-1,d,12));};
+    const endDate=(a)=>{const d=asDate(a.inicio);if(!d)return null;d.setUTCDate(d.getUTCDate()+Number(a.dias||1)-1);return d;};
+    const registered=(stamp)=>{if(!stamp)return null;const d=new Date(stamp);return Number.isFinite(d.getTime())?d:null;};
+    for(const a of registros){
+      const values=tipo==='reunioes'
+        ? [a.titulo||'',asDate(a.data),a.horaInicio||'',a.horaFim||'',a.local||'',a.participantes||'',a.observacoes||'',registered(a.criadoEm),registered(a.atualizadoEm)]
+        : tipo==='ferias'
+          ? [nomes.get(String(a.pessoaId))||'Pessoa excluída',asDate(a.inicio),endDate(a),Number(a.dias)||0,a.reserva10?'Sim':'Não',a.reserva15?'Sim':'Não',registered(a.criadoEm)]
+          : [nomes.get(String(a.pessoaId))||'Pessoa excluída',asDate(a.inicio),Number(a.dias)||1,registered(a.criadoEm)];
+      const row=ws.addRow(values);
+      row.height=tipo==='reunioes'?34:23;
+      row.eachCell({includeEmpty:true},cell=>{
+        cell.font={name:'Aptos',size:10,color:{argb:'FF26364A'}};
+        cell.alignment={vertical:'middle',wrapText:tipo==='reunioes'};
+        if(row.number%2===0)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF0F4F9'}};
+        cell.border={bottom:{style:'hair',color:{argb:'FFDDE5EF'}}};
+      });
+      const dateCells=tipo==='ferias'?[2,3]:[2];
+      for(const idx of dateCells)row.getCell(idx).numFmt='dd/mm/yyyy';
+      if(tipo==='reunioes'){
+        row.getCell(8).numFmt='dd/mm/yyyy hh:mm';
+        row.getCell(9).numFmt='dd/mm/yyyy hh:mm';
+      }else row.getCell(columns.length).numFmt='dd/mm/yyyy hh:mm';
+    }
+    const widths=tipo==='ferias'?[33,19,19,18,23,23,24]
+      :tipo==='abonada'?[33,19,18,24]
+      :[38,18,14,14,28,38,52,24,24];
+    widths.forEach((width,i)=>ws.getColumn(i+1).width=width);
+    if(registros.length)ws.autoFilter={from:{row:4,column:1},to:{row:4+registros.length,column:columns.length}};
+    else{
+      ws.mergeCells(5,1,5,columns.length);
+      ws.getCell(5,1).value='Nenhum registro encontrado para este setor.';
+      ws.getCell(5,1).font={italic:true,color:{argb:'FF66768A'}};
+      ws.getRow(5).height=30;
+    }
+    const nomeSeguro=(setor.nome||'setor').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,45)||'setor';
+    const filename=`OrganizaRH-${tipo}-${nomeSeguro}-${new Date().toISOString().slice(0,10)}.xlsx`;
+    res.set('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.set('Content-Disposition',`attachment; filename="${filename}"`);
+    res.set('Cache-Control','private, no-store');
+    await wb.xlsx.write(res);
+    res.end();
+  }catch(error){
+    console.error('Falha na exportação Excel:',error);
+    if(!res.headersSent)res.status(500).json({error:'Não foi possível gerar a planilha Excel.'});
+    else res.destroy(error);
+  }
+});
 router.get('/afastamentos', (req,res) => res.json(afastamentos));
 router.post('/afastamentos', (req,res) => {
   const error = validateAbsence(req.body || {}); if (error) return res.status(400).json({error});
-  const item = {id:crypto.randomUUID(), pessoaId:String(req.body.pessoaId), tipo:req.body.tipo, inicio:req.body.inicio, dias:Number(req.body.dias), reserva15:req.body.tipo==='ferias'&&req.body.reserva15===true, criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
+  const item = {id:crypto.randomUUID(), pessoaId:String(req.body.pessoaId), tipo:req.body.tipo, inicio:req.body.inicio, dias:Number(req.body.dias), reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true, reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true, criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
   afastamentos.push(item); try { persist(ABSENCE_FILE,afastamentos); } catch(e) { afastamentos=afastamentos.filter(a=>a.id!==item.id); console.error(e); return res.status(500).json({error:'Não foi possível salvar o afastamento.'}); }
   return res.status(201).json(item);
 });
 router.put('/afastamentos/:id', (req,res) => {
   const i=afastamentos.findIndex(a=>String(a.id)===String(req.params.id)); if(i<0)return res.status(404).json({error:'Afastamento não encontrado.'});
   const error=validateAbsence(req.body||{});if(error)return res.status(400).json({error});
-  const old=afastamentos[i], updated={...old,pessoaId:String(req.body.pessoaId),tipo:req.body.tipo,inicio:req.body.inicio,dias:Number(req.body.dias),reserva15:req.body.tipo==='ferias'&&req.body.reserva15===true,atualizadoEm:new Date().toISOString()};afastamentos[i]=updated;
+  const old=afastamentos[i], updated={...old,pessoaId:String(req.body.pessoaId),tipo:req.body.tipo,inicio:req.body.inicio,dias:Number(req.body.dias),reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true,reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true,atualizadoEm:new Date().toISOString()};afastamentos[i]=updated;
   try{persist(ABSENCE_FILE,afastamentos)}catch(e){afastamentos[i]=old;console.error(e);return res.status(500).json({error:'Não foi possível salvar as alterações.'})}return res.json(updated);
 });
 router.post('/afastamentos/ocultar-resumo', (req,res) => {
@@ -352,12 +556,46 @@ function meetingPayload(body) {
   return {titulo:body.titulo.trim(), data:body.data, horaInicio:body.horaInicio, horaFim:body.horaFim,
     local:(body.local||'').trim(), participantes:(body.participantes||'').trim(), observacoes:(body.observacoes||'').trim()};
 }
+
+// Configuração de e-mail restrita ao setor da sessão; o admin acessa o setor selecionado.
+router.get('/avisos-email',(req,res)=>{
+ const c=readMailSettings(sectorId);
+ return res.json({destinatario:c.destinatario||'',ativo:!!c.ativo,ultimoEnvio:c.ultimoEnvio||null,smtpConfigurado:smtpIsConfigured(),horario:'07:00',fuso:'America/Sao_Paulo'});
+});
+router.put('/avisos-email',(req,res)=>{
+ const destinatario=String(req.body?.destinatario||'').trim();
+ const ativo=req.body?.ativo===true;
+ if(destinatario&&!isValidEmail(destinatario))return res.status(400).json({error:'Informe um endereço de e-mail válido.'});
+ if(ativo&&!destinatario)return res.status(400).json({error:'Informe o e-mail para ativar os avisos.'});
+ const before=readMailSettings(sectorId);
+ const updated={...before,destinatario,ativo};
+ // A nova configuração pode ser enviada hoje caso o destinatário tenha mudado.
+ if(destinatario!==before.destinatario)updated.ultimoEnvio=null;
+ try{persist(mailSettingsFile(sectorId),updated);return res.json({message:'Preferências de e-mail salvas.'})}
+ catch(err){console.error(err);return res.status(500).json({error:'Não foi possível salvar o e-mail.'})}
+});
+router.post('/avisos-email/testar',async(req,res,next)=>{
+ try{
+  const sector=accounts.sectors.find(x=>x.id===sectorId);
+  const result=await sendDailyMeetingMail(sector,{test:true});
+  if(result.status==='no-smtp')return res.status(503).json({error:'SMTP não configurado no servidor. Consulte o README.'});
+  if(result.status==='disabled')return res.status(400).json({error:'Ative os avisos e salve um e-mail válido primeiro.'});
+  if(result.status==='busy')return res.status(409).json({error:'Já existe um envio em andamento.'});
+  return res.json({message:'E-mail de teste enviado. Confira a caixa de entrada e o spam.'});
+ }catch(err){console.error('Falha no teste SMTP:',err);return res.status(502).json({error:'O envio falhou. Confira as credenciais e configurações de SMTP no servidor.'})}
+});
+
 router.get('/reunioes', (req,res) => res.json(reunioes));
 router.post('/reunioes', (req,res) => {
   const error = validateMeeting(req.body||{}); if (error) return res.status(400).json({error});
   const item = {id:crypto.randomUUID(), ...meetingPayload(req.body), criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
   reunioes.push(item);
   try {persist(MEETING_FILE,reunioes)}catch(e){reunioes=reunioes.filter(m=>m.id!==item.id);console.error(e);return res.status(500).json({error:'Não foi possível salvar a reunião.'})}
+  if(item.data===todayInSaoPaulo() && hourInSaoPaulo()>=ALERT_HOUR){
+   // Não atrasa o cadastro em caso de indisponibilidade do serviço de e-mail.
+   // Se falhar, a verificação periódica tentará novamente.
+   setImmediate(()=>checkSectorMeetingEmails(setor).catch(err=>console.error(`Falha no aviso imediato do setor ${setor.id}:`,err.message)));
+  }
   return res.status(201).json(item);
 });
 router.post('/reunioes/ocultar-resumo',(req,res)=>{
@@ -399,4 +637,8 @@ app.use((error,req,res,next)=>{
  console.error(error);
  return res.status(500).json({error:'Erro interno do servidor.'});
 });
-app.listen(PORT,()=>console.log(`OrganizaRH disponível em http://localhost:${PORT}`));
+app.listen(PORT,()=>{
+ console.log(`OrganizaRH disponível em http://localhost:${PORT}`);
+ checkMeetingEmails().catch(console.error);
+ setInterval(()=>checkMeetingEmails().catch(console.error),60*1000).unref();
+});

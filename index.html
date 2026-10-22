@@ -206,7 +206,7 @@ body.dark #view-agenda .dashboard-stat[data-kind="atestado"] .stat-icon{backgrou
     <p class="dashboard-footnote">Clique em um evento para ver os detalhes.</p>
   </section>
   <section class="panel dashboard-card dashboard-alert-card" aria-labelledby="dashboard-alert-title">
-    <div class="dashboard-section-heading"><div><h2 id="dashboard-alert-title">Alertas de férias</h2><p class="dashboard-muted">Reservas de 15 dias ainda pendentes</p></div><span class="dashboard-heading-icon" aria-hidden="true">!</span></div>
+    <div class="dashboard-section-heading"><div><h2 id="dashboard-alert-title">Alertas de férias</h2><p class="dashboard-muted">Reservas de 10 e 15 dias ainda pendentes</p></div><span class="dashboard-heading-icon" aria-hidden="true">!</span></div>
     <div id="dashboard-alerts" class="dashboard-alerts"></div>
   </section>
 </aside>
@@ -215,6 +215,28 @@ body.dark #view-agenda .dashboard-stat[data-kind="atestado"] .stat-icon{backgrou
 <section class="view" id="view-ferias"><section class="panel"><div class="panel-head"><div><h2>Férias</h2><div class="panel-subtitle">Dias de férias registrados por pessoa</div></div></div><div class="summary-grid" id="ferias-summary"></div></section></section>
 <section class="view" id="view-reunioes"><section class="panel"><div class="panel-head"><div><h2>Reuniões agendadas</h2><div class="panel-subtitle">Consulte as reuniões e clique em uma delas para editar ou excluir</div></div></div><div class="meetings-list" id="meetings-list"></div></section></section>
 <section class="view" id="view-configuracoes"><section class="panel"><div class="panel-head"><div><h2>Configurações</h2><div class="panel-subtitle">Personalize a aparência do OrganizaRH</div></div></div><div class="settings-body"><div class="theme-row"><div><strong>Modo escuro</strong><div class="hint">A preferência fica salva neste navegador.</div></div><button class="secondary" type="button" id="toggle-theme" aria-pressed="false">Ativar modo escuro</button></div><p class="hint">Os dados de pessoas e afastamentos são salvos no servidor e permanecem disponíveis após reiniciá-lo.</p>
+
+  <section class="admin-users-section" id="excel-export-section" aria-labelledby="excel-export-title">
+    <div class="admin-users-heading"><div><h3 id="excel-export-title">Exportar dados do setor</h3><p class="hint">Baixe três planilhas Excel separadas, com o histórico completo de abonadas, férias e reuniões do setor atual, inclusive registros ocultados das listagens.</p></div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+      <button type="button" class="secondary" id="export-abonadas">↓ Baixar Abonadas (.xlsx)</button>
+      <button type="button" class="secondary" id="export-ferias">↓ Baixar Férias (.xlsx)</button>
+      <button type="button" class="secondary" id="export-reunioes">↓ Baixar Reuniões (.xlsx)</button>
+    </div>
+    <p class="hint" id="excel-export-status">As planilhas incluem nome, datas, quantidade de dias e informações do registro. O administrador exporta os dados do setor selecionado.</p>
+  </section>
+
+  <section class="admin-users-section" id="meeting-email-section" aria-labelledby="meeting-email-title">
+    <div class="admin-users-heading"><div><h3 id="meeting-email-title">Avisos de reuniões por e-mail</h3><p class="hint">Receba, às 7h da manhã, um resumo das reuniões agendadas para o dia. Cada setor configura seu próprio e-mail; o administrador gerencia o setor selecionado.</p></div></div>
+    <form id="meeting-email-form" style="display:grid;gap:12px;max-width:580px">
+      <div class="field"><label for="meeting-email-recipient">E-mail que receberá os avisos</label><input id="meeting-email-recipient" type="email" maxlength="254" placeholder="Ex.: setor@prefeitura.sp.gov.br"></div>
+      <label class="check-label"><input id="meeting-email-enabled" type="checkbox"> Ativar aviso automático de reuniões</label>
+      <div class="hint" id="meeting-email-status">Carregando configuração…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="submit" class="primary">Salvar preferências</button><button type="button" class="secondary" id="meeting-email-test">Enviar e-mail de teste</button></div>
+      <p class="hint">O servidor precisa estar ligado e o SMTP configurado. Se não houver reuniões, nenhum aviso diário será enviado. O teste não conta como aviso diário.</p>
+    </form>
+  </section>
+
   <section class="admin-users-section" id="admin-users-section" hidden aria-labelledby="admin-users-title">
     <div class="admin-users-heading"><div><h3 id="admin-users-title">Gerenciamento de usuários</h3><p class="hint">Crie logins por setor, altere senhas e exclua acessos. Somente o administrador pode realizar essas ações.</p></div><div class="user-actions"><button type="button" class="primary" id="admin-create-user">＋ Criar usuário</button><button type="button" class="secondary" id="admin-change-own-password">Alterar minha senha</button></div></div>
     <div class="admin-users-table-wrap"><table class="admin-users-table"><thead><tr><th>Setor</th><th>Usuário</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="admin-users-list"></tbody></table></div>
@@ -223,7 +245,7 @@ body.dark #view-agenda .dashboard-stat[data-kind="atestado"] .stat-icon{backgrou
  </div></section></section>
 </main>
 </div><!-- app-shell -->
-<div class="modal-backdrop" id="absence-modal" role="dialog" aria-modal="true" aria-labelledby="form-title"><div class="modal meeting-modal-box" id="absence-panel"><div class="panel-head"><h2 id="form-title">Cadastrar afastamento</h2><button type="button" id="close-absence-modal" aria-label="Fechar">✕</button></div><div class="form-body"><form id="absence-form"><input type="hidden" id="absence-id"><div class="field"><label for="person-select">Nome da pessoa *</label><select id="person-select" required><option value="">Selecione uma pessoa</option></select></div><div class="field"><label for="absence-type">Tipo de afastamento *</label><select id="absence-type" required><option value="ferias">Férias</option><option value="abonada">Falta abonada</option><option value="atestado">Atestado</option><option value="outras">Outras licenças</option></select></div><div class="field"><label for="start-date">Data de início *</label><input type="date" id="start-date" required></div><div class="field"><label for="days-count">Quantidade de dias *</label><input type="number" id="days-count" min="1" max="366" value="1" required><div class="hint">A contagem considera dias corridos, incluindo fins de semana.</div></div><div class="field" id="reserve-field" hidden><label class="check-label"><input type="checkbox" id="reserve-15"> Reservar 15 dias para outra ocasião</label><div class="hint">A reserva aparecerá em vermelho na página Férias até que seja registrado outro período de férias de 15 dias.</div></div><div class="form-actions"><button class="primary" type="submit" id="save-absence">Adicionar afastamento</button><button class="secondary" type="button" id="cancel-edit">Cancelar</button></div></form></div></div></div>
+<div class="modal-backdrop" id="absence-modal" role="dialog" aria-modal="true" aria-labelledby="form-title"><div class="modal meeting-modal-box" id="absence-panel"><div class="panel-head"><h2 id="form-title">Cadastrar afastamento</h2><button type="button" id="close-absence-modal" aria-label="Fechar">✕</button></div><div class="form-body"><form id="absence-form"><input type="hidden" id="absence-id"><div class="field"><label for="person-select">Nome da pessoa *</label><select id="person-select" required><option value="">Selecione uma pessoa</option></select></div><div class="field"><label for="absence-type">Tipo de afastamento *</label><select id="absence-type" required><option value="ferias">Férias</option><option value="abonada">Falta abonada</option><option value="atestado">Atestado</option><option value="outras">Outras licenças</option></select></div><div class="field"><label for="start-date">Data de início *</label><input type="date" id="start-date" required></div><div class="field" id="days-field"><label for="days-count" id="days-label">Quantidade de dias *</label><input type="number" id="days-count" min="1" max="366" value="1" required><select id="vacation-days" hidden disabled required><option value="">Selecione a duração</option><option value="15">15 dias</option><option value="20">20 dias</option><option value="30">30 dias</option></select><div class="hint" id="days-hint">A contagem considera dias corridos, incluindo fins de semana.</div></div><div class="field" id="reserve-field" hidden><div id="reserve-10-option" hidden><label class="check-label"><input type="checkbox" id="reserve-10"> Reservar 10 dias para outra ocasião</label><div class="hint">O alerta de 10 dias é compensado por um período posterior de férias de 20 dias sem nova reserva de 10 dias.</div></div><div id="reserve-15-option" hidden><label class="check-label"><input type="checkbox" id="reserve-15"> Reservar 15 dias para outra ocasião</label><div class="hint">O alerta vermelho de 15 dias só desaparece após registrar outro período de férias de 15 dias.</div></div></div><div class="form-actions"><button class="primary" type="submit" id="save-absence">Adicionar afastamento</button><button class="secondary" type="button" id="cancel-edit">Cancelar</button></div></form></div></div></div>
 <div class="modal-backdrop" id="person-modal" role="dialog" aria-modal="true" aria-labelledby="person-modal-title"><div class="modal"><div class="panel-head"><h2 id="person-modal-title">Adicionar pessoa</h2><button type="button" id="close-person-modal" aria-label="Fechar">✕</button></div><form class="form-body" id="person-form"><div class="field"><label for="new-person-name">Nome completo *</label><input id="new-person-name" maxlength="150" placeholder="Digite o nome da pessoa" required></div><div class="form-actions"><button class="primary" type="submit">Salvar pessoa</button><button class="secondary" type="button" id="cancel-person">Cancelar</button></div></form></div></div>
 <div class="modal-backdrop" id="delete-person-modal" role="dialog" aria-modal="true" aria-labelledby="delete-person-title"><div class="modal"><div class="panel-head"><h2 id="delete-person-title">Excluir pessoa</h2><button type="button" id="close-delete-person" aria-label="Fechar">✕</button></div><div class="form-body"><div class="field"><label for="delete-person-select">Selecione a pessoa *</label><select id="delete-person-select"><option value="">Selecione uma pessoa</option></select></div><p class="hint">A exclusão também removerá os afastamentos desta pessoa do calendário e das listagens. Esta ação não pode ser desfeita.</p><div class="form-actions"><button class="danger" type="button" id="request-delete-person">Excluir pessoa</button><button class="secondary" type="button" id="cancel-delete-person">Cancelar</button></div></div></div></div>
 <div class="modal-backdrop" id="confirm-delete-person-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-delete-person-title"><div class="modal"><div class="panel-head"><h2 id="confirm-delete-person-title">Confirmar exclusão</h2></div><div class="form-body"><p id="confirm-delete-person-message"></p><p class="hint">Todos os afastamentos desta pessoa serão excluídos definitivamente.</p><div class="form-actions"><button class="danger" type="button" id="confirm-delete-person">Sim, excluir</button><button class="secondary" type="button" id="cancel-confirm-delete-person">Cancelar</button></div></div></div></div>
@@ -246,6 +268,29 @@ function dateInAbsence(date,a){return date>=a.inicio&&date<=endDate(a)}
 function fmtDate(s){return parseDate(s).toLocaleDateString('pt-BR')}
 function toast(msg,error=false){const el=$('toast');el.textContent=msg;el.className='toast show'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='toast',3500)}
 async function request(url,options={}){const method=(options.method||'GET').toUpperCase();const headers={'Content-Type':'application/json',...(method!=='GET'&&method!=='HEAD'?{'X-OrganizaRH-Request':'1'}:{}),...(options.headers||{})};const res=await fetch(url,{...options,headers,credentials:'same-origin'});let data={};try{data=await res.json()}catch{}if(!res.ok){if(res.status===401&&!url.includes('/auth/'))showLogin();throw new Error(data.error||'Não foi possível concluir a operação.')}return data}
+async function exportExcel(tipo){
+ const button=$(tipo==='ferias'?'export-ferias':tipo==='reunioes'?'export-reunioes':'export-abonadas');
+ const status=$('excel-export-status');
+ button.disabled=true;
+ status.textContent='Preparando planilha Excel…';
+ try{
+  const response=await fetch(`${API}/exportar/${tipo}`,{credentials:'same-origin',cache:'no-store'});
+  if(!response.ok){let message='Não foi possível gerar a planilha.';try{const data=await response.json();message=data.error||message}catch{}if(response.status===401)showLogin();throw new Error(message)}
+  const blob=await response.blob();
+  const disposition=response.headers.get('Content-Disposition')||'';
+  const match=disposition.match(/filename="?([^";]+)"?/i);
+  const filename=match?match[1]:`OrganizaRH-${tipo}.xlsx`;
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  status.textContent=`Arquivo ${filename} preparado para download.`;
+  toast('Planilha Excel gerada.');
+ }catch(error){status.textContent=error.message;toast(error.message,true)}
+ finally{button.disabled=false}
+}
+$('export-abonadas').addEventListener('click',()=>exportExcel('abonada'));
+$('export-ferias').addEventListener('click',()=>exportExcel('ferias'));
+$('export-reunioes').addEventListener('click',()=>exportExcel('reunioes'));
 function setConnection(ok){$('connection-dot').classList.toggle('offline',!ok);$('connection-label').textContent=ok?'Conectado':'Sem conexão'}
 function personName(id){return pessoas.find(p=>String(p.id)===String(id))?.nome||'Pessoa removida'}
 function populatePeople(selected=''){const sel=$('person-select');sel.replaceChildren(new Option('Selecione uma pessoa',''));pessoas.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).forEach(p=>sel.add(new Option(p.nome,p.id)));sel.value=selected}
@@ -289,12 +334,15 @@ function renderDashboard(){
   btn.addEventListener('click',ev=>{ev.stopPropagation();openPopover({kind:entry.kind,item:a},btn)});
   destino.appendChild(btn);
  });
- const pendentes=pessoas.filter(p=>hasPendingReservation(p.id)).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+ const pendentes=pessoas.map(p=>({pessoa:p,reservas:pendingReservations(p.id)}))
+   .filter(e=>e.reservas[10]||e.reservas[15])
+   .sort((a,b)=>a.pessoa.nome.localeCompare(b.pessoa.nome,'pt-BR'));
  const avisos=$('dashboard-alerts');avisos.replaceChildren();
- if(!pendentes.length){const ok=document.createElement('div');ok.className='dashboard-clear';ok.textContent='Nenhuma reserva de 15 dias pendente.';avisos.appendChild(ok)}
+ if(!pendentes.length){const ok=document.createElement('div');ok.className='dashboard-clear';ok.textContent='Nenhuma reserva de férias pendente.';avisos.appendChild(ok)}
  else {
-  pendentes.slice(0,5).forEach(p=>{const aviso=document.createElement('div');aviso.className='dashboard-alert-item';aviso.textContent=p.nome+' — 15 dias reservados';avisos.appendChild(aviso)});
-  if(pendentes.length>5){const rest=document.createElement('p');rest.className='dashboard-footnote';rest.textContent=`E mais ${pendentes.length-5} pessoa(s) com reserva pendente.`;avisos.appendChild(rest)}
+  const alertas=pendentes.flatMap(e=>[10,15].filter(d=>e.reservas[d]).map(d=>({nome:e.pessoa.nome,dias:d,quantidade:e.reservas[d]})));
+  alertas.slice(0,5).forEach(e=>{const aviso=document.createElement('div');aviso.className='dashboard-alert-item';aviso.textContent=`${e.nome} — ${e.dias} dias reservados${e.quantidade>1?' ('+e.quantidade+' reservas)':''}`;avisos.appendChild(aviso)});
+  if(alertas.length>5){const rest=document.createElement('p');rest.className='dashboard-footnote';rest.textContent=`E mais ${alertas.length-5} alerta(s) de reserva pendente.`;avisos.appendChild(rest)}
  }
 }
 
@@ -324,7 +372,7 @@ function renderCalendar(){
 function detailLine(label,value){const row=document.createElement('div');row.className='popover-line';const strong=document.createElement('span');strong.className='popover-label';strong.textContent=label;const text=document.createElement('span');text.className='popover-value';text.textContent=String(value);row.append(strong,text);return row}
 function positionPopover(anchor){const pop=$('event-popover'),r=anchor.getBoundingClientRect(),w=pop.offsetWidth||320,h=pop.offsetHeight||250,gap=10;let x=r.right+gap,y=r.top;if(x+w>window.innerWidth-10)x=r.left-w-gap;if(x<10)x=Math.min(Math.max(10,window.innerWidth-w-10),Math.max(10,r.left));if(y+h>window.innerHeight-10)y=Math.max(10,window.innerHeight-h-10);pop.style.left=`${x}px`;pop.style.top=`${y}px`}
 function closePopover(){activePopover=null;popoverAnchor=null;$('event-popover').hidden=true}
-function openPopover(entry,anchor){closePopover();activePopover=entry;popoverAnchor=anchor;const item=entry.item,meeting=entry.kind==='meeting';$('popover-edit').hidden=false;$('popover-delete').hidden=false;$('popover-category').textContent=meeting?'REUNIÃO':(tipos[item.tipo]?.nome||'Afastamento').toLocaleUpperCase('pt-BR');$('popover-title').textContent=meeting?item.titulo:personName(item.pessoaId);const target=$('popover-content');target.replaceChildren();const rows=meeting?[['Data',fmtDate(item.data)],['Horário',`${item.horaInicio} às ${item.horaFim}`],...(item.local?[['Local',item.local]]:[]),...(item.participantes?[['Participantes',item.participantes]]:[]),...(item.observacoes?[['Observações',item.observacoes]]:[])]:[['Pessoa',personName(item.pessoaId)],['Tipo',tipos[item.tipo]?.nome||item.tipo],['Início',fmtDate(item.inicio)],['Término',fmtDate(endDate(item))],['Duração',`${item.dias} dia(s)`],...(item.tipo==='ferias'&&item.reserva15?[['Reserva','15 dias reservados para outra ocasião']]:[])];rows.forEach(([l,v])=>target.appendChild(detailLine(l,v)));$('event-popover').hidden=false;positionPopover(anchor)}
+function openPopover(entry,anchor){closePopover();activePopover=entry;popoverAnchor=anchor;const item=entry.item,meeting=entry.kind==='meeting';$('popover-edit').hidden=false;$('popover-delete').hidden=false;$('popover-category').textContent=meeting?'REUNIÃO':(tipos[item.tipo]?.nome||'Afastamento').toLocaleUpperCase('pt-BR');$('popover-title').textContent=meeting?item.titulo:personName(item.pessoaId);const target=$('popover-content');target.replaceChildren();const rows=meeting?[['Data',fmtDate(item.data)],['Horário',`${item.horaInicio} às ${item.horaFim}`],...(item.local?[['Local',item.local]]:[]),...(item.participantes?[['Participantes',item.participantes]]:[]),...(item.observacoes?[['Observações',item.observacoes]]:[])]:[['Pessoa',personName(item.pessoaId)],['Tipo',tipos[item.tipo]?.nome||item.tipo],['Início',fmtDate(item.inicio)],['Término',fmtDate(endDate(item))],['Duração',`${item.dias} dia(s)`],...(item.tipo==='ferias'&&item.reserva15?[['Reserva','15 dias reservados para outra ocasião']]:[]),...(item.tipo==='ferias'&&item.reserva10?[['Reserva','10 dias reservados para outra ocasião']]:[])];rows.forEach(([l,v])=>target.appendChild(detailLine(l,v)));$('event-popover').hidden=false;positionPopover(anchor)}
 function openMorePopover(extra,anchor){closePopover();popoverAnchor=anchor;$('popover-category').textContent='MAIS REGISTROS';$('popover-title').textContent='Outros eventos do dia';const target=$('popover-content');target.replaceChildren();extra.forEach(entry=>{const btn=document.createElement('button');btn.type='button';btn.className='more-choice';const meeting=entry.kind==='meeting';btn.textContent=meeting?`◷ ${entry.item.horaInicio} — ${entry.item.titulo}`:`${tipos[entry.item.tipo]?.sigla||'AF'} — ${personName(entry.item.pessoaId)}`;btn.onclick=()=>openPopover(entry,anchor);target.appendChild(btn)});$('popover-edit').hidden=true;$('popover-delete').hidden=true;$('event-popover').hidden=false;positionPopover(anchor)}
 $('close-event-popover').onclick=closePopover;
 $('popover-edit').onclick=()=>{const entry=activePopover;if(!entry)return;closePopover();if(entry.kind==='meeting')openMeetingModal(entry.item);else prepareEdit(entry.item)};
@@ -334,10 +382,31 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePopover();if($
 window.addEventListener('resize',()=>{if(!$('event-popover').hidden&&popoverAnchor?.isConnected)positionPopover(popoverAnchor);else closePopover()});
 window.addEventListener('scroll',()=>{if(!$('event-popover').hidden)closePopover()},true);
 function clearDetails(){closePopover()}
-function resetForm(){ $('absence-form').reset();$('absence-id').value='';$('days-count').value='1';$('reserve-15').checked=false;$('reserve-field').hidden=$('absence-type').value!=='ferias';$('form-title').textContent='Cadastrar afastamento';$('save-absence').textContent='Adicionar afastamento';$('cancel-edit').hidden=true;populatePeople() }
-function openAbsenceModal(a=null,type='ferias'){closePopover();resetForm();if(a){prepareEdit(a)}else{$('absence-type').value=type;$('reserve-field').hidden=type!=='ferias';$('start-date').value=localDateString()}$('absence-modal').classList.add('open');$('person-select').focus()}
+function resetForm(){ $('absence-form').reset();$('absence-id').value='';$('days-count').value='1';$('vacation-days').value='';$('reserve-15').checked=false;$('reserve-10').checked=false;$('form-title').textContent='Cadastrar afastamento';$('save-absence').textContent='Adicionar afastamento';$('cancel-edit').hidden=true;populatePeople();updateDaysField() }
+function openAbsenceModal(a=null,type='ferias'){closePopover();resetForm();if(a){prepareEdit(a)}else{$('absence-type').value=type;updateDaysField();$('start-date').value=localDateString()}$('absence-modal').classList.add('open');$('person-select').focus()}
 function closeAbsenceModal(){$('absence-modal').classList.remove('open');resetForm()}
-function prepareEdit(a){$('absence-id').value=a.id;populatePeople(a.pessoaId);$('absence-type').value=a.tipo;$('start-date').value=a.inicio;$('days-count').value=a.dias;$('reserve-field').hidden=a.tipo!=='ferias';$('reserve-15').checked=Boolean(a.reserva15);$('form-title').textContent='Editar afastamento';$('save-absence').textContent='Salvar alterações';$('cancel-edit').hidden=false;$('absence-modal').classList.add('open');$('person-select').focus()}
+function prepareEdit(a){
+ $('absence-id').value=a.id;
+ populatePeople(a.pessoaId);
+ $('absence-type').value=a.tipo;
+ $('start-date').value=a.inicio;
+ $('days-count').value=a.dias;
+ if(a.tipo==='ferias'){
+  $('vacation-days').value=[15,20,30].includes(Number(a.dias))?String(a.dias):'';
+ }
+ updateDaysField();
+ // Restaura apenas a reserva correspondente à duração registrada.
+ $('reserve-10').checked=Number(a.dias)===20&&Boolean(a.reserva10);
+ $('reserve-15').checked=Number(a.dias)===15&&Boolean(a.reserva15);
+ if(a.tipo==='ferias'&&!$('vacation-days').value){
+  $('days-hint').textContent=`Registro antigo de ${a.dias} dias. Escolha 15, 20 ou 30 dias para alterar.`;
+ }
+ $('form-title').textContent='Editar afastamento';
+ $('save-absence').textContent='Salvar alterações';
+ $('cancel-edit').hidden=false;
+ $('absence-modal').classList.add('open');
+ $('person-select').focus();
+}
 function renderMeetings(){const target=$('meetings-list');target.replaceChildren();if(!reunioes.some(m=>!m.ocultoResumo)){const blank=document.createElement('div');blank.className='empty-state';blank.textContent='Nenhuma reunião agendada. Clique em “Agendar reunião” para começar.';target.appendChild(blank);return}reunioes.filter(m=>!m.ocultoResumo).slice().sort((a,b)=>a.data.localeCompare(b.data)||a.horaInicio.localeCompare(b.horaInicio)).forEach(m=>{const btn=document.createElement('button');btn.type='button';btn.className='meeting-list-row';const day=document.createElement('span');day.className='meeting-list-date';day.textContent=fmtDate(m.data);const info=document.createElement('span');info.className='meeting-list-info';const title=document.createElement('strong');title.textContent=m.titulo;const sub=document.createElement('small');sub.textContent=`${m.horaInicio} às ${m.horaFim}${m.local?' · '+m.local:''}`;info.append(title,sub);const arrow=document.createElement('span');arrow.textContent='›';btn.append(day,info,arrow);btn.onclick=ev=>{ev.stopPropagation();openPopover({kind:'meeting',item:m},btn)};target.appendChild(btn)})}
 function openMeetingModal(m=null){closePopover();$('meeting-form').reset();$('meeting-id').value=m?.id||'';$('meeting-modal-title').textContent=m?'Editar reunião':'Agendar reunião';$('meeting-save').textContent=m?'Salvar alterações':'Salvar reunião';$('meeting-title').value=m?.titulo||'';$('meeting-date').value=m?.data||localDateString();$('meeting-start').value=m?.horaInicio||'09:00';$('meeting-end').value=m?.horaFim||'10:00';$('meeting-location').value=m?.local||'';$('meeting-attendees').value=m?.participantes||'';$('meeting-notes').value=m?.observacoes||'';$('meeting-modal').classList.add('open');$('meeting-title').focus()}
 function closeMeetingModal(){$('meeting-modal').classList.remove('open');$('meeting-form').reset()}
@@ -345,22 +414,109 @@ $('new-meeting').onclick=()=>openMeetingModal();$('close-meeting-modal').onclick
 $('meeting-form').addEventListener('submit',async e=>{e.preventDefault();const id=$('meeting-id').value;const payload={titulo:$('meeting-title').value.trim(),data:$('meeting-date').value,horaInicio:$('meeting-start').value,horaFim:$('meeting-end').value,local:$('meeting-location').value,participantes:$('meeting-attendees').value,observacoes:$('meeting-notes').value};const btn=$('meeting-save');btn.disabled=true;try{const result=await request(id?`${API}/reunioes/${encodeURIComponent(id)}`:`${API}/reunioes`,{method:id?'PUT':'POST',body:JSON.stringify(payload)});closeMeetingModal();currentDate=parseDate(result.data);currentDate.setDate(1);await loadAll();toast(id?'Reunião atualizada.':'Reunião agendada.')}catch(err){toast(err.message,true)}finally{btn.disabled=false}});
 async function deleteMeeting(id){const m=reunioes.find(r=>String(r.id)===String(id));if(!m||!confirm(`Excluir a reunião “${m.titulo}” de ${fmtDate(m.data)}?`))return;try{await request(`${API}/reunioes/${encodeURIComponent(id)}`,{method:'DELETE'});closePopover();await loadAll();toast('Reunião excluída.')}catch(e){toast(e.message,true)}}
 function renderSummaries(){renderSummaryType('abonadas','abonada');renderSummaryType('ferias','ferias')}
-function hasPendingReservation(personId){
-  const vacations=afastamentos.filter(a=>String(a.pessoaId)===String(personId)&&a.tipo==='ferias')
-    .sort((a,b)=>a.inicio.localeCompare(b.inicio)||String(a.criadoEm||'').localeCompare(String(b.criadoEm||''))||String(a.id).localeCompare(String(b.id)));
-  let pendentes=0;
-  for(const a of vacations){
-    // Cada período de 15 dias quita no máximo uma reserva anterior.
-    if(Number(a.dias)===15&&pendentes>0)pendentes--;
-    // O mesmo período pode quitar a anterior e criar uma nova reserva.
-    if(a.reserva15)pendentes++;
-  }
-  return pendentes>0;
+// As reservas de 10 dias são feitas em férias de 20 dias; um novo período
+// de 20 dias pode compensar uma reserva anterior e, se marcado, criar outra.
+// Uma reserva de 15 dias é compensada por outro período de 15 dias.
+// Registros históricos de 10 dias também podem compensar antigas reservas.
+function pendingReservations(personId){
+ const vacations=afastamentos.filter(a=>String(a.pessoaId)===String(personId)&&a.tipo==='ferias')
+  .sort((a,b)=>a.inicio.localeCompare(b.inicio)||String(a.criadoEm||'').localeCompare(String(b.criadoEm||''))||String(a.id).localeCompare(String(b.id)));
+ const pending={10:0,15:0};
+ for(const a of vacations){
+  const days=Number(a.dias);
+  if((days===20||days===10)&&pending[10]>0)pending[10]--;
+  if(days===15&&pending[15]>0)pending[15]--;
+  if(a.reserva10)pending[10]++;
+  if(a.reserva15)pending[15]++;
+ }
+ return pending;
 }
-function renderSummaryType(containerId,type){const target=$(containerId+'-summary');target.replaceChildren();const entries=pessoas.map(p=>({pessoa:p,items:afastamentos.filter(a=>String(a.pessoaId)===String(p.id)&&a.tipo===type&&!a.ocultoResumo)}));if(!entries.some(e=>e.items.length||(type==='ferias'&&hasPendingReservation(e.pessoa.id)))){const empty=document.createElement('div');empty.className='empty-state';empty.textContent=type==='abonada'?'Ainda não há faltas abonadas registradas.':'Ainda não há férias registradas.';target.appendChild(empty);return}entries.filter(e=>e.items.length||(type==='ferias'&&hasPendingReservation(e.pessoa.id))).sort((a,b)=>a.pessoa.nome.localeCompare(b.pessoa.nome,'pt-BR')).forEach(({pessoa,items})=>{const card=document.createElement('article');card.className='person-card';const title=document.createElement('h3');title.textContent=pessoa.nome;const total=document.createElement('div');total.className='person-total';const days=items.reduce((sum,a)=>sum+Number(a.dias),0);if(type==='ferias'){total.textContent=items.length;const small=document.createElement('small');small.textContent=items.length===1?' período de férias tirado':' períodos de férias tirados';total.appendChild(small)}else{total.textContent=days;const small=document.createElement('small');small.textContent=' dias utilizados';total.appendChild(small)}const list=document.createElement('div');list.className='period-list';items.slice().sort((a,b)=>a.inicio.localeCompare(b.inicio)).forEach(a=>{const row=document.createElement('div');row.className='period-row';const dates=document.createElement('span');dates.textContent=`${fmtDate(a.inicio)}${a.dias>1?' – '+fmtDate(endDate(a)):''}`;row.appendChild(dates);list.appendChild(row)});card.append(title,total,list);if(type==='ferias'&&hasPendingReservation(pessoa.id)){const warning=document.createElement('div');warning.className='reserve-warning';warning.textContent='15 DIAS RESERVADOS';card.appendChild(warning)}target.appendChild(card)})}
+function hasPendingReservation(personId){const pending=pendingReservations(personId);return pending[10]>0||pending[15]>0}
+function renderSummaryType(containerId,type){
+ const target=$(containerId+'-summary');target.replaceChildren();
+ const entries=pessoas.map(p=>({pessoa:p,items:afastamentos.filter(a=>String(a.pessoaId)===String(p.id)&&a.tipo===type&&!a.ocultoResumo)}));
+ if(!entries.some(e=>e.items.length||(type==='ferias'&&hasPendingReservation(e.pessoa.id)))){
+  const empty=document.createElement('div');empty.className='empty-state';
+  empty.textContent=type==='abonada'?'Ainda não há faltas abonadas registradas.':'Ainda não há férias registradas.';
+  target.appendChild(empty);return;
+ }
+ entries.filter(e=>e.items.length||(type==='ferias'&&hasPendingReservation(e.pessoa.id)))
+  .sort((a,b)=>a.pessoa.nome.localeCompare(b.pessoa.nome,'pt-BR'))
+  .forEach(({pessoa,items})=>{
+   const card=document.createElement('article');card.className='person-card';
+   const title=document.createElement('h3');title.textContent=pessoa.nome;
+   const total=document.createElement('div');total.className='person-total';
+   const days=items.reduce((sum,a)=>sum+Number(a.dias),0);
+   if(type==='ferias'){
+    total.textContent=items.length;
+    const small=document.createElement('small');small.textContent=items.length===1?' período de férias tirado':' períodos de férias tirados';total.appendChild(small);
+   }else{
+    total.textContent=days;
+    const small=document.createElement('small');small.textContent=' dias utilizados';total.appendChild(small);
+   }
+   const list=document.createElement('div');list.className='period-list';
+   items.slice().sort((a,b)=>a.inicio.localeCompare(b.inicio)).forEach(a=>{
+    const row=document.createElement('div');row.className='period-row';
+    const dates=document.createElement('span');dates.textContent=`${fmtDate(a.inicio)}${a.dias>1?' – '+fmtDate(endDate(a)):''}`;
+    row.appendChild(dates);list.appendChild(row);
+   });
+   card.append(title,total,list);
+   if(type==='ferias'){
+    const pending=pendingReservations(pessoa.id);
+    for(const d of [10,15]){
+     if(pending[d]){
+      const warning=document.createElement('div');warning.className='reserve-warning';
+      warning.textContent=`${d} DIAS RESERVADOS${pending[d]>1?' ('+pending[d]+' RESERVAS)':''}`;
+      card.appendChild(warning);
+     }
+    }
+   }
+   target.appendChild(card);
+  });
+}
 async function deleteAbsence(id){const a=afastamentos.find(x=>String(x.id)===String(id));if(!a||!confirm(`Excluir o afastamento de ${personName(a.pessoaId)}?`))return;try{await request(`${API}/afastamentos/${encodeURIComponent(id)}`,{method:'DELETE'});clearDetails();resetForm();await loadAll();toast('Afastamento excluído.')}catch(e){toast(e.message,true)}}
-$('absence-type').addEventListener('change',()=>{const isVacation=$('absence-type').value==='ferias';$('reserve-field').hidden=!isVacation;if(!isVacation)$('reserve-15').checked=false});
-$('absence-form').addEventListener('submit',async e=>{e.preventDefault();const id=$('absence-id').value;const payload={pessoaId:$('person-select').value,tipo:$('absence-type').value,inicio:$('start-date').value,dias:Number($('days-count').value),reserva15:$('absence-type').value==='ferias'&&$('reserve-15').checked};try{const saved=await request(id?`${API}/afastamentos/${encodeURIComponent(id)}`:`${API}/afastamentos`,{method:id?'PUT':'POST',body:JSON.stringify(payload)});currentDate=parseDate(saved.inicio);currentDate.setDate(1);closeAbsenceModal();await loadAll();toast(id?'Afastamento atualizado.':'Afastamento cadastrado.')}catch(err){toast(err.message,true)}});
+function updateReserveField(){
+ const days=$('absence-type').value==='ferias'?Number($('vacation-days').value):0;
+ const show10=days===20,show15=days===15;
+ $('reserve-field').hidden=!(show10||show15);
+ $('reserve-10-option').hidden=!show10;
+ $('reserve-15-option').hidden=!show15;
+ // Não permitir que uma opção escondida continue marcada.
+ if(!show10)$('reserve-10').checked=false;
+ if(!show15)$('reserve-15').checked=false;
+}
+function updateDaysField(){
+ const type=$('absence-type').value, isVacation=type==='ferias', isAbonada=type==='abonada';
+ $('days-field').hidden=isAbonada;
+ $('days-count').hidden=isVacation;
+ $('days-count').disabled=isVacation||isAbonada;
+ $('days-count').required=!isVacation&&!isAbonada;
+ $('vacation-days').hidden=!isVacation;
+ $('vacation-days').disabled=!isVacation;
+ $('vacation-days').required=isVacation;
+ $('days-label').htmlFor=isVacation?'vacation-days':'days-count';
+ $('days-label').textContent=isVacation?'Período de férias *':'Quantidade de dias *';
+ $('days-hint').textContent='A contagem considera dias corridos, incluindo fins de semana.';
+ if(isAbonada)$('days-count').value='1';
+ updateReserveField();
+}
+$('absence-type').addEventListener('change',updateDaysField);
+$('vacation-days').addEventListener('change',updateReserveField);
+$('absence-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const id=$('absence-id').value, type=$('absence-type').value;
+ const days=type==='abonada'?1:(type==='ferias'?Number($('vacation-days').value):Number($('days-count').value));
+ const payload={
+  pessoaId:$('person-select').value,tipo:type,inicio:$('start-date').value,dias:days,
+  reserva10:type==='ferias'&&days===20&&$('reserve-10').checked,
+  reserva15:type==='ferias'&&days===15&&$('reserve-15').checked
+ };
+ try{
+  const saved=await request(id?`${API}/afastamentos/${encodeURIComponent(id)}`:`${API}/afastamentos`,{method:id?'PUT':'POST',body:JSON.stringify(payload)});
+  currentDate=parseDate(saved.inicio);currentDate.setDate(1);
+  closeAbsenceModal();await loadAll();toast(id?'Afastamento atualizado.':'Afastamento cadastrado.');
+ }catch(err){toast(err.message,true)}
+});
 function openPersonModal(){$('person-modal').classList.add('open');$('new-person-name').focus()}function closePersonModal(){$('person-modal').classList.remove('open');$('person-form').reset()}
 $('add-person-top').onclick=openPersonModal;$('close-person-modal').onclick=closePersonModal;$('cancel-person').onclick=closePersonModal;$('person-modal').addEventListener('click',e=>{if(e.target===$('person-modal'))closePersonModal()});
 $('person-form').addEventListener('submit',async e=>{e.preventDefault();const nome=$('new-person-name').value.trim();try{const p=await request(`${API}/pessoas`,{method:'POST',body:JSON.stringify({nome})});await loadAll();populatePeople(p.id);closePersonModal();$('person-select').value=p.id;toast('Pessoa adicionada com sucesso.')}catch(err){toast(err.message,true)}});
@@ -380,7 +536,7 @@ $('new-absence').onclick=()=>openAbsenceModal();$('cancel-edit').onclick=closeAb
 document.querySelectorAll('.nav button').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b===btn));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${btn.dataset.view}`));const titles={agenda:'Calendário de afastamentos e reuniões',abonadas:'Faltas abonadas',ferias:'Férias',reunioes:'Reuniões',configuracoes:'Configurações'};$('page-title').textContent=titles[btn.dataset.view];$('new-absence').style.display=btn.dataset.view==='configuracoes'?'none':'';$('new-meeting').style.display=btn.dataset.view==='configuracoes'?'none':'';$('clear-active-tab').hidden=!['abonadas','ferias','reunioes'].includes(btn.dataset.view);closePopover();renderSummaries()}));
 $('clear-active-tab').onclick=()=>{const active=document.querySelector('.nav button.active')?.dataset.view;const types={abonadas:'abonada',ferias:'ferias',reunioes:'reuniao'};if(types[active])openClearSummary(types[active]);};
 let pendingSummaryType=null;
-function openClearSummary(type){pendingSummaryType=type;const isVacation=type==='ferias',isMeeting=type==='reuniao';$('clear-summary-title').textContent=isMeeting?'Limpar dados da aba Reuniões':isVacation?'Limpar registros de férias':'Limpar registros de abonadas';$('clear-summary-message').textContent=isMeeting?'Deseja ocultar as reuniões da lista desta aba? Elas continuarão visíveis no calendário.':isVacation?'Deseja ocultar da aba todos os registros de férias já listados? O alerta de 15 dias reservados será mantido.':'Deseja ocultar da aba todos os registros de abonadas já listados?';$('clear-summary-modal').classList.add('open')}
+function openClearSummary(type){pendingSummaryType=type;const isVacation=type==='ferias',isMeeting=type==='reuniao';$('clear-summary-title').textContent=isMeeting?'Limpar dados da aba Reuniões':isVacation?'Limpar registros de férias':'Limpar registros de abonadas';$('clear-summary-message').textContent=isMeeting?'Deseja ocultar as reuniões da lista desta aba? Elas continuarão visíveis no calendário.':isVacation?'Deseja ocultar da aba todos os registros de férias já listados? Os alertas de 10 e 15 dias reservados serão mantidos.':'Deseja ocultar da aba todos os registros de abonadas já listados?';$('clear-summary-modal').classList.add('open')}
 function closeClearSummary(){$('clear-summary-modal').classList.remove('open');pendingSummaryType=null}
 
 
@@ -394,6 +550,29 @@ let currentAccount=null;
 const AUTH_FORMS=['auth-login-form','auth-register-form','auth-setup-form'];
 function authError(text=''){$('auth-error').textContent=text;$('auth-error').hidden=!text}
 function showAuthForm(name){AUTH_FORMS.forEach(id=>$(id).hidden=id!==name);$('auth-setup-remote').hidden=true;authError()}
+
+async function loadMeetingEmailSettings(){
+ try{
+  const c=await request(`${API}/avisos-email`);
+  $('meeting-email-recipient').value=c.destinatario||'';
+  $('meeting-email-enabled').checked=!!c.ativo;
+  $('meeting-email-status').textContent=(c.smtpConfigurado?'Servidor de e-mail configurado.':'SMTP não configurado no servidor. ')+` Envio automático às ${c.horario} (horário de Brasília).`+(c.ultimoEnvio?' Último aviso: '+c.ultimoEnvio.split('-').reverse().join('/')+'.':'');
+ }catch(err){$('meeting-email-status').textContent='Não foi possível carregar a configuração: '+err.message}
+}
+$('meeting-email-form').addEventListener('submit',async ev=>{
+ ev.preventDefault();
+ const btn=ev.submitter; if(btn)btn.disabled=true;
+ try{
+  const payload={destinatario:$('meeting-email-recipient').value.trim(),ativo:$('meeting-email-enabled').checked};
+  const result=await request(`${API}/avisos-email`,{method:'PUT',body:JSON.stringify(payload)});
+  await loadMeetingEmailSettings();toast(result.message);
+ }catch(err){toast(err.message,true)}finally{if(btn)btn.disabled=false}
+});
+$('meeting-email-test').onclick=async()=>{
+ const btn=$('meeting-email-test');btn.disabled=true;
+ try{const result=await request(`${API}/avisos-email/testar`,{method:'POST',body:'{}'});toast(result.message)}catch(err){toast(err.message,true)}finally{btn.disabled=false}
+};
+
 function showLogin(){
  currentAccount=null;pessoas=[];afastamentos=[];reunioes=[];
  $('app-shell').hidden=true;$('auth-screen').hidden=false;
@@ -409,6 +588,7 @@ async function afterLogin(profile){
  $('auth-sector-name').textContent=profile.sectorName;
  if(admin)refreshAdminSectorSelector(profile);
  await loadAll();
+ await loadMeetingEmailSettings();
  if(admin)try{await loadAdminUsers()}catch(err){toast(err.message,true)}
 }
 // O administrador gerencia todas as credenciais sem modificar os dados de cada setor.
@@ -521,7 +701,7 @@ $('auth-setup-form').addEventListener('submit',async e=>{
 });
 $('auth-sector-select').addEventListener('change',async e=>{
  const sel=e.currentTarget;sel.disabled=true;
- try{const profile=await request(`${API}/auth/select-sector`,{method:'POST',body:JSON.stringify({sectorId:sel.value})});currentAccount=profile;pessoas=[];afastamentos=[];reunioes=[];await loadAll();toast('Setor alterado: '+profile.sectorName)}
+ try{const profile=await request(`${API}/auth/select-sector`,{method:'POST',body:JSON.stringify({sectorId:sel.value})});currentAccount=profile;pessoas=[];afastamentos=[];reunioes=[];await loadAll();await loadMeetingEmailSettings();toast('Setor alterado: '+profile.sectorName)}
  catch(err){toast(err.message,true);if(currentAccount)sel.value=currentAccount.sectorId}
  finally{sel.disabled=false}
 });
