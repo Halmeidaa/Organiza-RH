@@ -31,8 +31,46 @@ localhost funciona apenas no próprio computador do servidor. Dependendo da rede
 Onde ficam os dados?
 Os dados são salvos pelo servidor em arquivos JSON na pasta data. Os registros dos setores ficam separados, evitando que um setor consulte os dados de outro com seu login. Essa pasta é criada conforme a configuração e o uso do sistema.
 
-#Pra que serve
+#Pra que serve?
 
-O projeto nasceu para facilitar uma tarefa que costuma dar trabalho no dia a dia: organizar férias, faltas abonadas, atestados, outros afastamentos e reuniões sem depender de várias planilhas ou anotações espalhadas.
+O OrganizaRH é um projeto que desenvolvi pensando inicialmente nas necessidades da Prefeitura de São Roque, onde trabalho como servidor público.
 
-A ideia é simples: reunir tudo em um calendário fácil de consultar. Assim, fica mais rápido descobrir quem estará ausente em determinada data, conferir os registros do mês e acompanhar os compromissos da equipe.
+A ideia surgiu da minha própria necessidade de organizar melhor os afastamentos e compromissos do setor em que atuo. Como a Prefeitura possui um sistema de faltas abonadas, no qual cada servidor pode utilizar até seis faltas por ano, além dos períodos de férias e outros afastamentos, percebi que seria interessante reunir todas essas informações em um único lugar.
+
+O que começou como uma ferramenta para facilitar minha própria organização acabou sendo desenvolvido para atender também ao RH do meu setor e de outros departamentos, permitindo que cada um tenha seu próprio controle de funcionários e registros.
+
+O objetivo é simples: facilitar a rotina de trabalho, evitar o uso de várias planilhas e tornar mais prática a consulta de férias, faltas abonadas, atestados, outros afastamentos e reuniões.
+
+#Como funciona?
+
+O OrganizaRH é uma aplicação web que pode ser acessada pelo navegador. O sistema utiliza um servidor em Node.js, responsável por gerenciar e armazenar as informações.
+
+No primeiro acesso, é necessário configurar uma conta de administrador. Com ela é possível criar usuários para diferentes setores, cada um com seus próprios funcionários, afastamentos e reuniões. Assim, cada departamento consegue organizar suas informações separadamente, enquanto o administrador geral pode gerenciar os diferentes setores.
+
+Após entrar no sistema, o usuário pode cadastrar os funcionários e registrar seus afastamentos, informando o tipo, a data de início e a quantidade de dias. Todos os registros aparecem automaticamente em um calendário, identificados por cores e siglas para facilitar a visualização.
+
+O calendário permite navegar entre os meses, consultar os afastamentos e reuniões de cada dia e visualizar um resumo dos registros do mês. Também é possível selecionar um registro para consultar suas informações, editá-lo ou excluí-lo.
+
+#Controle de férias e faltas abonadas
+
+Uma das principais funcionalidades do OrganizaRH é o acompanhamento das férias e faltas abonadas dos funcionários.
+
+Na aba de Abonadas, é possível consultar os dias utilizados por cada servidor durante o ano, considerando o limite de seis faltas abonadas anuais adotado pela Prefeitura de São Roque.
+
+Já na aba de Férias, o sistema permite acompanhar os períodos registrados e controlar os dias reservados para outra ocasião. Quando existe uma reserva pendente, um aviso é exibido até que o período correspondente seja registrado.
+
+Essas funcionalidades foram pensadas principalmente para facilitar o controle de informações que fazem parte da rotina administrativa dos setores da Prefeitura.
+
+#Organização de reuniões
+
+Além dos afastamentos, o sistema também possui uma área para agendamento de reuniões.
+
+Nela, é possível informar o assunto, a data, os horários de início e término, o local, os participantes e eventuais observações. As reuniões também aparecem no calendário, junto aos demais registros.
+
+O OrganizaRH oferece ainda a possibilidade de configurar avisos automáticos por e-mail com as reuniões agendadas para o dia, desde que o servidor esteja configurado para realizar os envios.
+
+#Outras funcionalidades
+
+O sistema também conta com a opção de modo escuro, exportação de registros de férias, abonadas e reuniões para planilhas Excel, além de permitir a edição e exclusão das informações cadastradas.
+
+Os dados são armazenados pelo servidor em arquivos JSON, permanecendo salvos mesmo após o encerramento da aplicação. O sistema também pode ser acessado por outros computadores conectados à mesma rede, desde que o servidor esteja em funcionamento e permita essas conexões.
