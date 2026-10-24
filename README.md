@@ -74,3 +74,32 @@ O OrganizaRH oferece ainda a possibilidade de configurar avisos automáticos por
 O sistema também conta com a opção de modo escuro, exportação de registros de férias, abonadas e reuniões para planilhas Excel, além de permitir a edição e exclusão das informações cadastradas.
 
 Os dados são armazenados pelo servidor em arquivos JSON, permanecendo salvos mesmo após o encerramento da aplicação. O sistema também pode ser acessado por outros computadores conectados à mesma rede, desde que o servidor esteja em funcionamento e permita essas conexões.
+
+## Demonstração do sistema
+
+Abaixo estão algumas imagens e um vídeo mostrando
+o funcionamento do OrganizaRH, desde o primeiro
+acesso até a criação de usuários para os setores.
+
+### Primeiro acesso
+
+Nesta tela, é realizada a configuração inicial
+de acesso ao sistema.
+
+![Primeiro Login](prints/Primeiro%20Login.png)
+
+### Criação de login por setor
+
+O OrganizaRH permite criar usuários para
+diferentes setores, mantendo os dados e
+registros separados.
+
+![Criar login do setor](prints/criar%20login%20do%20setor.png)
+
+### Vídeo demonstrativo
+
+Gravei uma demonstração prática do OrganizaRH,
+apresentando sua interface e algumas das
+funcionalidades disponíveis.
+
+[▶ Assistir ao vídeo demonstrativo do OrganizaRH](videos/teste.mp4)
