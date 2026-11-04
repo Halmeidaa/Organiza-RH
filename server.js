@@ -1,3 +1,4 @@
+// OrganizaRH v5: autenticação por setor e isolamento de registros no servidor.
 require('dotenv').config();
 const express = require('express');
 const nodemailer = require('nodemailer');
@@ -51,8 +52,8 @@ function isLocal(req){
 }
 function normalizeUsername(raw){return typeof raw==='string'?raw.trim().toLowerCase():'';}
 function validUsername(s){return /^[a-z0-9._-]{3,32}$/.test(s);}
-
-// qualquer senha não vazia é aceita, talvez colocar requisitos de senha.
+// Não exigimos formato ou tamanho mínimo: qualquer senha não vazia é aceita.
+// O limite técnico evita requisições excessivamente grandes.
 function validPassword(p){return typeof p==='string' && p.length>=1 && p.length<=1024;}
 async function hashPassword(pass){
   const salt=crypto.randomBytes(16).toString('hex');
@@ -109,15 +110,14 @@ function csrf(req,res,next){
   next();
 }
 app.use('/api',csrf);
-
-// Quardar os dados de antigos, antes de ser por setor.
+// Setor de migração legado fica armazenado como backup, mas não aparece no sistema.
 function regularSectors(){return accounts.sectors.filter(x=>x.id!=='legado')}
 function displaySession(s){
   const sectors=regularSectors().map(x=>({id:x.id,nome:x.nome,active:!!(x.username&&x.hash)}));
   return {role:s.role,username:s.username,sectorId:s.sectorId,sectorName:sectors.find(x=>x.id===s.sectorId)?.nome||'',sectors:s.role==='admin'?sectors:undefined};
 }
 app.get('/api/auth/status',(req,res)=>res.json({configured:!!accounts.admin,canSetup:!accounts.admin&&isLocal(req)}));
-// Primeiro uso para senha do admin: somente na própria máquina que executa o servidor.
+// Primeiro uso: somente na própria máquina que executa o servidor.
 app.post('/api/auth/setup',async(req,res,next)=>{
  try{
   if(accounts.admin||setupInProgress)return res.status(409).json({error:'O administrador já foi configurado ou está sendo configurado.'});
@@ -136,7 +136,7 @@ app.post('/api/auth/setup',async(req,res,next)=>{
       else persist(newPath,[]);
     }
   }
-  
+  // Contas são gravadas somente depois que a cópia dos dados foi concluída.
   persist(ACCOUNTS_FILE,newAccount);accounts=newAccount;
   return res.status(201).json({message:'Administrador configurado. Faça login como admin.'});
  }catch(e){next(e)}finally{setupInProgress=false}
@@ -249,7 +249,6 @@ app.delete('/api/admin/users/:id',requireAdmin,async(req,res,next)=>{
   if(!await matchesPassword(req.body?.senhaAdmin,accounts.admin))return res.status(403).json({error:'Senha do administrador incorreta.'});
   const sector=accounts.sectors.find(s=>s.id===req.params.id&&s.username&&s.hash);
   if(!sector)return res.status(404).json({error:'Usuário não encontrado ou já excluído.'});
-   
   // Desativar as credenciais preserva os arquivos, reuniões e afastamentos do setor.
   const nextAccounts={...accounts,sectors:accounts.sectors.map(s=>s.id===sector.id?{...s,username:null,hash:null,disabledAt:new Date().toISOString()}:s)};
   persist(ACCOUNTS_FILE,nextAccounts);accounts=nextAccounts;
@@ -302,15 +301,14 @@ async function sendDailyMeetingMail(sector,{test=false}={}){
   await createMailTransport().sendMail({from:process.env.SMTP_FROM,to:settings.destinatario,subject,text});
   if(!test){
    const updated=readMailSettings(id);
-    
-   // Evitar sobrescrever uma alteração de destinatário feita enquanto o e-mail enviava.
+   // Evitar sobrescrever uma alteração de destinatário feita enquanto o SMTP enviava.
    if(updated.destinatario===settings.destinatario && updated.ativo)persist(mailSettingsFile(id),{...updated,ultimoEnvio:date,idsAvisados:meetings.map(m=>m.id)});
   }
   return {status:'sent',count:meetings.length};
  }finally{mailInProgress.delete(id)}
 }
-
 // Envia apenas reuniões do próprio dia que foram cadastradas após as 07h e ainda não foram avisadas.
+// Mantém o controle por setor e evita repetir avisos quando a verificação roda a cada minuto.
 function createdAfterAlertTime(meeting,date){
  if(!meeting.criadoEm)return false;
  const created=new Date(meeting.criadoEm);
@@ -330,9 +328,10 @@ async function sendLateMeetingMail(sector){
   const date=todayInSaoPaulo();
   if(hourInSaoPaulo()<ALERT_HOUR||settings.ultimoEnvio!==date)return {status:'not-due'};
   const meetings=loadArray(path.join(SECTORS_DIR,id,'reunioes.json'));
-   
+  // Compatibilidade com setores que já receberam o resumo antes de atualizar para a v9:
   // evita reenviar todas as reuniões antigas na primeira verificação.
   if(!Array.isArray(settings.idsAvisados)){
+   // Migração: não repetir reuniões antigas já cobertas pelo resumo da v8.
    // Reuniões criadas nos últimos dois minutos ficam elegíveis para aviso imediato.
    const cutoff=Date.now()-2*60*1000;
    const previous=meetings.filter(m=>m.data===date && (!m.criadoEm || new Date(m.criadoEm).getTime()<cutoff));
@@ -355,8 +354,7 @@ async function sendLateMeetingMail(sector){
 async function checkSectorMeetingEmails(sector){
  if(hourInSaoPaulo()<ALERT_HOUR)return;
  const daily=await sendDailyMeetingMail(sector);
- 
-  // Caso o resumo do dia já tenha saído, envia separadamente apenas reuniões novas.
+ // Caso o resumo do dia já tenha saído, envia separadamente apenas reuniões novas.
  if(daily.status==='already-sent')await sendLateMeetingMail(sector);
 }
 async function checkMeetingEmails(){
@@ -397,7 +395,10 @@ function validateAbsence(body) {
   if (!validDate(body.inicio)) return 'Informe uma data de início válida.';
   const dias = Number(body.dias);
   if (!Number.isInteger(dias) || dias < 1 || dias > 366) return 'A quantidade de dias deve ser um número inteiro entre 1 e 366.';
-  if (body.tipo === 'ferias' && ![15, 20, 30].includes(dias)) return 'Para férias, selecione um período de 15, 20 ou 30 dias.';
+  // Férias podem usar 15, 20 ou 30 dias, ou um período personalizado entre 1 e 366 dias.
+  if (body.duracaoPersonalizada != null && typeof body.duracaoPersonalizada !== 'boolean') return 'Formato de duração personalizada inválido.';
+  if (body.duracaoPersonalizada === true && (body.reserva10 === true || body.reserva15 === true)) return 'Reservas só podem ser marcadas nos períodos padrão de férias.';
+  if (body.observacoes != null && (typeof body.observacoes !== 'string' || body.observacoes.trim().length > 1500)) return 'As observações devem ter no máximo 1500 caracteres.';
   if (body.reserva10 === true && !(body.tipo === 'ferias' && dias === 20)) return 'A reserva de 10 dias só é permitida em férias de 20 dias.';
   if (body.reserva15 === true && !(body.tipo === 'ferias' && dias === 15)) return 'A reserva de 15 dias só é permitida em férias de 15 dias.';
   if (body.tipo === 'abonada' && dias !== 1) return 'Cada falta abonada deve corresponder a apenas 1 dia.';
@@ -420,8 +421,12 @@ router.delete('/pessoas/:id', (req,res) => {
   try{persist(ABSENCE_FILE,afastamentos);persist(PEOPLE_FILE,pessoas);return res.json({message:'Pessoa e afastamentos excluídos.'})}
   catch(e){pessoas=previousPeople;afastamentos=previousAbsences;console.error(e);try{persist(ABSENCE_FILE,afastamentos);persist(PEOPLE_FILE,pessoas)}catch(rollbackError){console.error('Erro ao restaurar arquivos:',rollbackError)}return res.status(500).json({error:'Não foi possível excluir a pessoa.'})}
 });
-
-// Exportação de planilhas Excel por setor, a exportação n lê os dados de outros setores
+// Exportação completa do setor autenticado: inclui registros ocultos das abas.
+// Nenhum identificador de setor é aceito pela URL: o roteador já foi selecionado
+// exclusivamente pela sessão autenticada (ou pelo setor escolhido pelo admin).
+// Exportação de planilhas Excel por setor. O roteador já é selecionado pela sessão:
+// a exportação nunca lê os dados de outros setores, inclusive para o admin.
+// Inclui também registros ocultados das abas, sem expor o indicador de ocultação.
 router.get('/exportar/:tipo', async (req,res) => {
   const tipo=req.params.tipo;
   if(!['abonada','ferias','reunioes'].includes(tipo))return res.status(404).json({error:'Exportação não encontrada.'});
@@ -508,14 +513,14 @@ router.get('/exportar/:tipo', async (req,res) => {
 router.get('/afastamentos', (req,res) => res.json(afastamentos));
 router.post('/afastamentos', (req,res) => {
   const error = validateAbsence(req.body || {}); if (error) return res.status(400).json({error});
-  const item = {id:crypto.randomUUID(), pessoaId:String(req.body.pessoaId), tipo:req.body.tipo, inicio:req.body.inicio, dias:Number(req.body.dias), reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true, reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true, criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
+  const item = {id:crypto.randomUUID(), pessoaId:String(req.body.pessoaId), tipo:req.body.tipo, inicio:req.body.inicio, dias:Number(req.body.dias), duracaoPersonalizada:req.body.tipo==='ferias'&&req.body.duracaoPersonalizada===true, observacoes:typeof req.body.observacoes==='string'?req.body.observacoes.trim():'', reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true, reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true, criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
   afastamentos.push(item); try { persist(ABSENCE_FILE,afastamentos); } catch(e) { afastamentos=afastamentos.filter(a=>a.id!==item.id); console.error(e); return res.status(500).json({error:'Não foi possível salvar o afastamento.'}); }
   return res.status(201).json(item);
 });
 router.put('/afastamentos/:id', (req,res) => {
   const i=afastamentos.findIndex(a=>String(a.id)===String(req.params.id)); if(i<0)return res.status(404).json({error:'Afastamento não encontrado.'});
   const error=validateAbsence(req.body||{});if(error)return res.status(400).json({error});
-  const old=afastamentos[i], updated={...old,pessoaId:String(req.body.pessoaId),tipo:req.body.tipo,inicio:req.body.inicio,dias:Number(req.body.dias),reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true,reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true,atualizadoEm:new Date().toISOString()};afastamentos[i]=updated;
+  const old=afastamentos[i], updated={...old,pessoaId:String(req.body.pessoaId),tipo:req.body.tipo,inicio:req.body.inicio,dias:Number(req.body.dias),duracaoPersonalizada:req.body.tipo==='ferias'&&req.body.duracaoPersonalizada===true,observacoes:typeof req.body.observacoes==='string'?req.body.observacoes.trim():'',reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true,reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true,atualizadoEm:new Date().toISOString()};afastamentos[i]=updated;
   try{persist(ABSENCE_FILE,afastamentos)}catch(e){afastamentos[i]=old;console.error(e);return res.status(500).json({error:'Não foi possível salvar as alterações.'})}return res.json(updated);
 });
 router.post('/afastamentos/ocultar-resumo', (req,res) => {
