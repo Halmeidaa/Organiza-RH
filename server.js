@@ -19,6 +19,18 @@ const SESSION_MS = 12 * 60 * 60 * 1000;
 const COOKIE_NAME = 'organiz arh_session'.replace(' ', '');
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const routers = new Map();
+// Clientes conectados recebem uma notificação apenas quando o próprio setor muda.
+const sectorStreams = new Map();
+function notifySector(sectorId){
+  const clients=sectorStreams.get(sectorId);
+  if(!clients)return;
+  for(const client of [...clients]){
+    const session=getSession(client.req);
+    if(!session || session.sectorId!==sectorId){client.res.end();continue}
+    try{client.res.write('event: atualizacao\ndata: {}\n\n')}
+    catch{client.res.end()}
+  }
+}
 const sessions = new Map();
 const attempts = new Map();
 fs.mkdirSync(DATA_DIR, {recursive: true});
@@ -396,6 +408,41 @@ function getRouter(sectorId){
  let afastamentos=loadArray(ABSENCE_FILE);
  let reunioes=loadArray(MEETING_FILE);
  const router=express.Router();
+ // Server-Sent Events (SSE): uma conexão autenticada por navegador e por setor.
+ router.get('/eventos',(req,res)=>{
+   res.status(200).set({
+     'Content-Type':'text/event-stream; charset=utf-8',
+     'Cache-Control':'no-cache, no-transform',
+     'Connection':'keep-alive',
+     'X-Accel-Buffering':'no'
+   });
+   res.flushHeaders();
+   res.write('retry: 3000\n: conectado\n\n');
+   let clients=sectorStreams.get(sectorId);
+   if(!clients){clients=new Set();sectorStreams.set(sectorId,clients)}
+   const client={req,res};clients.add(client);
+   const heartbeat=setInterval(()=>{
+     const session=getSession(req);
+     if(!session || session.sectorId!==sectorId){res.end();return}
+     try{res.write(': heartbeat\n\n')}catch{res.end()}
+   },20000);
+   heartbeat.unref();
+   const cleanup=()=>{
+     clearInterval(heartbeat);
+     clients.delete(client);
+     if(clients.size===0)sectorStreams.delete(sectorId);
+   };
+   res.on('close',cleanup);
+ });
+ // Notifica os outros navegadores somente depois de uma gravação bem-sucedida.
+ router.use((req,res,next)=>{
+   if(MUTATING.has(req.method) && /^\/(pessoas|afastamentos|reunioes)(?:\/|$)/.test(req.path)){
+     res.once('finish',()=>{
+       if(res.statusCode>=200 && res.statusCode<300)notifySector(sectorId);
+     });
+   }
+   next();
+ });
 function validDate(s) {
   if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
   const [y,m,d] = s.split('-').map(Number); const date = new Date(Date.UTC(y,m-1,d));
