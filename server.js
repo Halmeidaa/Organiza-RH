@@ -365,6 +365,24 @@ async function checkMeetingEmails(){
  }
 }
 
+// Controle otimista de concorrência. Registros antigos sem versão começam em 1;
+// nunca dependemos de intervalos de tempo para detectar alterações concorrentes.
+function recordVersion(item){
+  return Number.isSafeInteger(item?.versao) && item.versao >= 1 ? item.versao : 1;
+}
+function checkExpectedVersion(req,res,item,description){
+  const expected=req.body?.versao;
+  if(!Number.isSafeInteger(expected) || expected<1){
+    res.status(428).json({error:`Para alterar ou excluir ${description}, recarregue o registro antes de continuar.`});
+    return false;
+  }
+  const current=recordVersion(item);
+  if(expected!==current){
+    res.status(409).json({error:`Este ${description} foi alterado por outra pessoa enquanto você o visualizava. Suas alterações não foram salvas.`,versaoAtual:current,codigo:'REGISTRO_ALTERADO'});
+    return false;
+  }
+  return true;
+}
 // Cada roteador mantém arrays e arquivos exclusivos de um setor.
 function getRouter(sectorId){
  if(routers.has(sectorId))return routers.get(sectorId);
@@ -513,14 +531,15 @@ router.get('/exportar/:tipo', async (req,res) => {
 router.get('/afastamentos', (req,res) => res.json(afastamentos));
 router.post('/afastamentos', (req,res) => {
   const error = validateAbsence(req.body || {}); if (error) return res.status(400).json({error});
-  const item = {id:crypto.randomUUID(), pessoaId:String(req.body.pessoaId), tipo:req.body.tipo, inicio:req.body.inicio, dias:Number(req.body.dias), duracaoPersonalizada:req.body.tipo==='ferias'&&req.body.duracaoPersonalizada===true, observacoes:typeof req.body.observacoes==='string'?req.body.observacoes.trim():'', reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true, reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true, criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
+  const item = {id:crypto.randomUUID(), pessoaId:String(req.body.pessoaId), tipo:req.body.tipo, inicio:req.body.inicio, dias:Number(req.body.dias), duracaoPersonalizada:req.body.tipo==='ferias'&&req.body.duracaoPersonalizada===true, observacoes:typeof req.body.observacoes==='string'?req.body.observacoes.trim():'', reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true, reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true, criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString(), versao:1};
   afastamentos.push(item); try { persist(ABSENCE_FILE,afastamentos); } catch(e) { afastamentos=afastamentos.filter(a=>a.id!==item.id); console.error(e); return res.status(500).json({error:'Não foi possível salvar o afastamento.'}); }
   return res.status(201).json(item);
 });
 router.put('/afastamentos/:id', (req,res) => {
-  const i=afastamentos.findIndex(a=>String(a.id)===String(req.params.id)); if(i<0)return res.status(404).json({error:'Afastamento não encontrado.'});
+  const i=afastamentos.findIndex(a=>String(a.id)===String(req.params.id)); if(i<0)return res.status(404).json({error:'Este afastamento foi excluído por outra pessoa ou não existe mais.',codigo:'REGISTRO_EXCLUIDO'});
+  if(!checkExpectedVersion(req,res,afastamentos[i],'afastamento'))return;
   const error=validateAbsence(req.body||{});if(error)return res.status(400).json({error});
-  const old=afastamentos[i], updated={...old,pessoaId:String(req.body.pessoaId),tipo:req.body.tipo,inicio:req.body.inicio,dias:Number(req.body.dias),duracaoPersonalizada:req.body.tipo==='ferias'&&req.body.duracaoPersonalizada===true,observacoes:typeof req.body.observacoes==='string'?req.body.observacoes.trim():'',reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true,reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true,atualizadoEm:new Date().toISOString()};afastamentos[i]=updated;
+  const old=afastamentos[i], updated={...old,pessoaId:String(req.body.pessoaId),tipo:req.body.tipo,inicio:req.body.inicio,dias:Number(req.body.dias),duracaoPersonalizada:req.body.tipo==='ferias'&&req.body.duracaoPersonalizada===true,observacoes:typeof req.body.observacoes==='string'?req.body.observacoes.trim():'',reserva10:req.body.tipo==='ferias'&&Number(req.body.dias)===20&&req.body.reserva10===true,reserva15:req.body.tipo==='ferias'&&Number(req.body.dias)===15&&req.body.reserva15===true,atualizadoEm:new Date().toISOString(),versao:recordVersion(old)+1};afastamentos[i]=updated;
   try{persist(ABSENCE_FILE,afastamentos)}catch(e){afastamentos[i]=old;console.error(e);return res.status(500).json({error:'Não foi possível salvar as alterações.'})}return res.json(updated);
 });
 router.post('/afastamentos/ocultar-resumo', (req,res) => {
@@ -530,7 +549,7 @@ router.post('/afastamentos/ocultar-resumo', (req,res) => {
   const previous = afastamentos.map(a => ({...a}));
   let count = 0;
   afastamentos = afastamentos.map(a => {
-    if (a.tipo === tipo && !a.ocultoResumo) { count++; return {...a, ocultoResumo:true}; }
+    if (a.tipo === tipo && !a.ocultoResumo) { count++; return {...a, ocultoResumo:true,versao:recordVersion(a)+1,atualizadoEm:new Date().toISOString()}; }
     return a;
   });
   try {
@@ -542,7 +561,14 @@ router.post('/afastamentos/ocultar-resumo', (req,res) => {
     return res.status(500).json({error:'Não foi possível limpar a listagem.'});
   }
 });
-router.delete('/afastamentos/:id',(req,res)=>{const i=afastamentos.findIndex(a=>String(a.id)===String(req.params.id));if(i<0)return res.status(404).json({error:'Afastamento não encontrado.'});const [old]=afastamentos.splice(i,1);try{persist(ABSENCE_FILE,afastamentos)}catch(e){afastamentos.splice(i,0,old);console.error(e);return res.status(500).json({error:'Não foi possível excluir o afastamento.'})}return res.json({message:'Afastamento excluído.'})});
+router.delete('/afastamentos/:id',(req,res)=>{
+  const i=afastamentos.findIndex(a=>String(a.id)===String(req.params.id));
+  if(i<0)return res.status(404).json({error:'Este afastamento já foi excluído por outra pessoa.',codigo:'REGISTRO_EXCLUIDO'});
+  if(!checkExpectedVersion(req,res,afastamentos[i],'afastamento'))return;
+  const [old]=afastamentos.splice(i,1);
+  try{persist(ABSENCE_FILE,afastamentos)}catch(e){afastamentos.splice(i,0,old);console.error(e);return res.status(500).json({error:'Não foi possível excluir o afastamento.'})}
+  return res.json({message:'Afastamento excluído.'});
+});
 
 // Reuniões são independentes dos afastamentos e armazenadas em arquivo separado.
 function validTime(value) { return typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value); }
@@ -591,7 +617,7 @@ router.post('/avisos-email/testar',async(req,res,next)=>{
 router.get('/reunioes', (req,res) => res.json(reunioes));
 router.post('/reunioes', (req,res) => {
   const error = validateMeeting(req.body||{}); if (error) return res.status(400).json({error});
-  const item = {id:crypto.randomUUID(), ...meetingPayload(req.body), criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
+  const item = {id:crypto.randomUUID(), ...meetingPayload(req.body), criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString(),versao:1};
   reunioes.push(item);
   try {persist(MEETING_FILE,reunioes)}catch(e){reunioes=reunioes.filter(m=>m.id!==item.id);console.error(e);return res.status(500).json({error:'Não foi possível salvar a reunião.'})}
   if(item.data===todayInSaoPaulo() && hourInSaoPaulo()>=ALERT_HOUR){
@@ -604,19 +630,21 @@ router.post('/reunioes', (req,res) => {
 router.post('/reunioes/ocultar-resumo',(req,res)=>{
   if(req.body?.confirmar!==true)return res.status(400).json({error:'Confirme a operação.'});
   const previous=reunioes;let count=0;
-  reunioes=reunioes.map(m=>{if(!m.ocultoResumo){count++;return {...m,ocultoResumo:true}}return m});
+  reunioes=reunioes.map(m=>{if(!m.ocultoResumo){count++;return {...m,ocultoResumo:true,versao:recordVersion(m)+1,atualizadoEm:new Date().toISOString()}}return m});
   try{persist(MEETING_FILE,reunioes);return res.json({message:count?`${count} reunião(ões) ocultada(s) da aba. Permanecem no calendário.`:'Nenhuma reunião nova para ocultar.',ocultados:count})}
   catch(e){reunioes=previous;console.error(e);return res.status(500).json({error:'Não foi possível limpar a aba Reuniões.'})}
 });
 router.put('/reunioes/:id', (req,res) => {
-  const index = reunioes.findIndex(m=>String(m.id)===String(req.params.id)); if(index<0)return res.status(404).json({error:'Reunião não encontrada.'});
+  const index = reunioes.findIndex(m=>String(m.id)===String(req.params.id)); if(index<0)return res.status(404).json({error:'Esta reunião foi excluída por outra pessoa ou não existe mais.',codigo:'REGISTRO_EXCLUIDO'});
+  if(!checkExpectedVersion(req,res,reunioes[index],'reunião'))return;
   const error=validateMeeting(req.body||{});if(error)return res.status(400).json({error});
-  const previous=reunioes[index];const updated={...previous,...meetingPayload(req.body),atualizadoEm:new Date().toISOString()};reunioes[index]=updated;
+  const previous=reunioes[index];const updated={...previous,...meetingPayload(req.body),atualizadoEm:new Date().toISOString(),versao:recordVersion(previous)+1};reunioes[index]=updated;
   try{persist(MEETING_FILE,reunioes)}catch(e){reunioes[index]=previous;console.error(e);return res.status(500).json({error:'Não foi possível atualizar a reunião.'})}
   return res.json(updated);
 });
 router.delete('/reunioes/:id',(req,res)=>{
-  const index=reunioes.findIndex(m=>String(m.id)===String(req.params.id));if(index<0)return res.status(404).json({error:'Reunião não encontrada.'});
+  const index=reunioes.findIndex(m=>String(m.id)===String(req.params.id));if(index<0)return res.status(404).json({error:'Esta reunião já foi excluída por outra pessoa.',codigo:'REGISTRO_EXCLUIDO'});
+  if(!checkExpectedVersion(req,res,reunioes[index],'reunião'))return;
   const [previous]=reunioes.splice(index,1);
   try{persist(MEETING_FILE,reunioes)}catch(e){reunioes.splice(index,0,previous);console.error(e);return res.status(500).json({error:'Não foi possível excluir a reunião.'})}
   return res.json({message:'Reunião excluída.'});
